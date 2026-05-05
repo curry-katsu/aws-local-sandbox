@@ -14,6 +14,12 @@
 - GUI 依存関係インストール: `make gui-install`
 - GUI ローカル起動: `make gui-dev`
 - AWS CLI スモークテスト: `make smoke`
+- 検証ツール依存関係インストール: `make verify-install`
+- 検証用 SQS message 投入: `make verify-send-message`
+- SQS -> DynamoDB -> S3 ログ検証: `make verify-run`
+- DynamoDB 検証データ確認: `make verify-dynamodb-scan`
+- S3 検証ログ確認: `make verify-s3-ls`
+- S3 検証ログ内容確認: `make verify-s3-cat FILE=verification-logs/YYYY/MM/DD/<run-id>.json`
 
 ## 環境変数
 
@@ -54,6 +60,8 @@ export VITE_AWS_SECRET_ACCESS_KEY=test
 3. `make infra-apply` で S3、DynamoDB、SQS の検証リソースを作成する。
 4. `http://localhost:5173` を開き、GUI からリソース一覧を確認する。
 5. AWS CLI で確認する場合は `make smoke` を使う。
+6. SQS / DynamoDB / S3 の連携確認は `verification/sqs_to_dynamodb_s3_log/` の Poetry プロジェクトを使い、`make verify-install`、`make verify-send-message`、`make verify-run` の順に実行する。
+7. 検証結果は `make verify-dynamodb-scan`、`make verify-s3-ls`、`make verify-s3-cat FILE=<key>` で確認する。
 
 ## 注意
 

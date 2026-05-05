@@ -45,6 +45,19 @@ export AWS_SECRET_ACCESS_KEY=test
 make smoke
 ```
 
+## Verification Tool
+
+SQS から message を読み取り、DynamoDB に保存し、処理ログ JSON を S3 にアップロードする検証ツールを `verification/sqs_to_dynamodb_s3_log/` に配置しています。
+
+```sh
+make verify-install
+make verify-send-message
+make verify-run
+make verify-dynamodb-scan
+make verify-s3-ls
+make verify-s3-cat FILE=verification-logs/YYYY/MM/DD/<run-id>.json
+```
+
 ## Data Persistence
 
 Floci の状態は `FLOCI_STORAGE_MODE=persistent` で `data/floci/` に永続化されます。`make down` では削除されません。

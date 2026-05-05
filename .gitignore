@@ -6,3 +6,7 @@ terraform.tfvars
 node_modules/
 dist/
 .DS_Store
+__pycache__/
+*.py[cod]
+.ruff_cache/
+verification/**/logs/

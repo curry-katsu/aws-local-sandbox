@@ -10,6 +10,7 @@
 - `Makefile`: Canonical task runner for agents and humans.
 - `infra/`: Terraform configuration targeting Floci.
 - `gui/`: Vue 3 + Vite + Vuetify 3 management console.
+- `verification/`: Nested verification tools. Each tool should live in its own subdirectory, for example `verification/sqs_to_dynamodb_s3_log/`.
 - `data/floci/`: Local persisted Floci state created at runtime.
 
 ## Toolchain
@@ -47,11 +48,14 @@ export VITE_AWS_SECRET_ACCESS_KEY=test
    - Terraform: `terraform fmt`, `make infra-plan`
    - GUI: `cd gui && npm run build`
    - End-to-end smoke: `make smoke`
+   - Service workflow verification: `make verify-install`, `make verify-send-message`, then `make verify-run`
+   - Verification output checks: `make verify-dynamodb-scan`, `make verify-s3-ls`, `make verify-s3-cat FILE=<key>`
 
 ## Coding Boundaries
 
 - Keep infrastructure changes in `infra/`.
 - Keep browser GUI changes in `gui/`.
+- Keep verification utilities in nested directories under `verification/`; do not place `main.py` directly at `verification/`.
 - Do not remove local endpoint settings from Terraform or AWS SDK clients.
 - Do not introduce real cloud account dependencies.
 - Prefer AWS SDK v3 modular clients.

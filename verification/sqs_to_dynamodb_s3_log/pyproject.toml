@@ -1,0 +1,33 @@
+[project]
+name = "sqs-to-dynamodb-s3-log"
+version = "0.1.0"
+description = "Verification tool for reading Floci SQS messages, writing them to DynamoDB, and uploading JSON logs to S3."
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+authors = [{ name = "aws-local-sandbox contributors" }]
+dependencies = [
+  "boto3>=1.35.0,<2.0.0",
+]
+
+[project.scripts]
+sqs-ddb-s3-verify = "sqs_to_dynamodb_s3_log.main:main"
+
+[tool.poetry]
+packages = [{ include = "sqs_to_dynamodb_s3_log", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+flake8 = "^7.1.0"
+isort = "^5.13.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
