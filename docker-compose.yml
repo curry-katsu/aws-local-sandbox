@@ -1,0 +1,36 @@
+services:
+  floci:
+    image: floci/floci:latest
+    container_name: aws-local-sandbox-floci
+    ports:
+      - "4566:4566"
+    environment:
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      FLOCI_STORAGE_MODE: ${FLOCI_STORAGE_MODE:-persistent}
+      FLOCI_STORAGE_PERSISTENT_PATH: /app/data
+    volumes:
+      - ./data/floci:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  gui:
+    image: node:22-alpine
+    container_name: aws-local-sandbox-gui
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_AWS_ENDPOINT_URL: ${VITE_AWS_ENDPOINT_URL:-http://localhost:4566}
+      VITE_AWS_REGION: ${VITE_AWS_REGION:-us-east-1}
+      VITE_AWS_ACCESS_KEY_ID: ${VITE_AWS_ACCESS_KEY_ID:-test}
+      VITE_AWS_SECRET_ACCESS_KEY: ${VITE_AWS_SECRET_ACCESS_KEY:-test}
+    volumes:
+      - ./gui:/app
+      - gui-node-modules:/app/node_modules
+    depends_on:
+      - floci
+
+volumes:
+  gui-node-modules:
