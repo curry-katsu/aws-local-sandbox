@@ -13,8 +13,10 @@ DYNAMODB_TABLE_NAME ?= aws-local-sandbox-table
 S3_BUCKET_NAME ?= aws-local-sandbox-bucket
 S3_LOG_PREFIX ?= verification-logs
 VERIFY_MESSAGE_BODY ?= {"source":"make","message":"hello from aws-local-sandbox"}
+COGNITO_USERNAME ?= sandbox-user@example.com
+COGNITO_PASSWORD ?= Sandbox123
 
-.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint fmt clean
+.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint fmt clean
 
 help:
 	@printf '%s\n' \
@@ -37,6 +39,11 @@ help:
 		'  make verify-s3-cat FILE=<key> Print an S3 object body' \
 		'  make verify-format Format verification Python code with black and isort' \
 		'  make verify-lint   Lint verification Python code with black, isort, and flake8' \
+		'  make verify-cognito-install Install Cognito verification tool dependencies' \
+		'  make verify-cognito-create-user Create a sample Cognito user' \
+		'  make verify-cognito-login-jwt Create/login a Cognito user and print JWTs' \
+		'  make verify-cognito-format Format Cognito verification Python code' \
+		'  make verify-cognito-lint Lint Cognito verification Python code' \
 		'  make fmt           Format Terraform files' \
 		'  make clean         Stop containers and delete local persisted Floci data'
 
@@ -68,7 +75,7 @@ gui-install:
 	cd gui && npm install
 
 gui-dev:
-	cd gui && VITE_AWS_ENDPOINT_URL=$(AWS_ENDPOINT_URL) VITE_AWS_REGION=$(AWS_DEFAULT_REGION) VITE_AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) VITE_AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) npm run dev
+	cd gui && FLOCI_PROXY_TARGET=$(AWS_ENDPOINT_URL) VITE_AWS_ENDPOINT_URL=$(AWS_ENDPOINT_URL) VITE_AWS_REGION=$(AWS_DEFAULT_REGION) VITE_AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) VITE_AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) npm run dev
 
 smoke:
 	$(AWS_LOCAL_ENV) aws s3 ls --endpoint-url $(AWS_ENDPOINT_URL)
@@ -102,6 +109,42 @@ verify-lint:
 	cd verification/sqs_to_dynamodb_s3_log && poetry run isort --check-only .
 	cd verification/sqs_to_dynamodb_s3_log && poetry run black --check .
 	cd verification/sqs_to_dynamodb_s3_log && poetry run flake8 .
+
+verify-cognito-install:
+	cd verification/cognito_user_create && poetry install
+
+verify-cognito-create-user:
+	cd verification/cognito_user_create && $(AWS_LOCAL_ENV) poetry run cognito-user-create-verify
+
+verify-cognito-login-jwt:
+	@set -eu; \
+	USER_POOL_ID="$${COGNITO_USER_POOL_ID:-$$(cd infra && terraform output -raw cognito_user_pool_id)}"; \
+	CLIENT_ID="$${COGNITO_USER_POOL_CLIENT_ID:-$$(cd infra && terraform output -raw cognito_user_pool_client_id)}"; \
+	cd verification/cognito_user_create && \
+	$(AWS_LOCAL_ENV) \
+	COGNITO_USER_POOL_ID="$$USER_POOL_ID" \
+	COGNITO_USERNAME="$(COGNITO_USERNAME)" \
+	COGNITO_USER_EMAIL="$(COGNITO_USERNAME)" \
+	COGNITO_TEMPORARY_PASSWORD="$(COGNITO_PASSWORD)" \
+	COGNITO_PERMANENT_PASSWORD="$(COGNITO_PASSWORD)" \
+	COGNITO_SET_PERMANENT_PASSWORD=true \
+	poetry run cognito-user-create-verify >/dev/null; \
+	$(AWS_LOCAL_ENV) aws cognito-idp admin-initiate-auth \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--user-pool-id "$$USER_POOL_ID" \
+		--client-id "$$CLIENT_ID" \
+		--auth-flow ADMIN_USER_PASSWORD_AUTH \
+		--auth-parameters USERNAME="$(COGNITO_USERNAME)",PASSWORD="$(COGNITO_PASSWORD)" \
+		--query 'AuthenticationResult'
+
+verify-cognito-format:
+	cd verification/cognito_user_create && poetry run isort .
+	cd verification/cognito_user_create && poetry run black .
+
+verify-cognito-lint:
+	cd verification/cognito_user_create && poetry run isort --check-only .
+	cd verification/cognito_user_create && poetry run black --check .
+	cd verification/cognito_user_create && poetry run flake8 .
 
 fmt:
 	cd infra && terraform fmt

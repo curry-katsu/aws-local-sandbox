@@ -12,6 +12,7 @@
         <v-list-item prepend-icon="mdi-bucket-outline" title="S3" />
         <v-list-item prepend-icon="mdi-database-outline" title="DynamoDB" />
         <v-list-item prepend-icon="mdi-message-outline" title="SQS" />
+        <v-list-item prepend-icon="mdi-account-key-outline" title="Cognito" />
       </v-list>
     </v-navigation-drawer>
 
@@ -45,6 +46,7 @@
           </v-col>
         </v-row>
 
+        <CognitoLoginVerifier class="mb-6" />
         <ResourceList />
       </v-container>
     </v-main>
@@ -52,8 +54,9 @@
 </template>
 
 <script setup>
+import CognitoLoginVerifier from './components/CognitoLoginVerifier.vue'
 import ResourceList from './components/ResourceList.vue'
 
-const endpointUrl = import.meta.env.VITE_AWS_ENDPOINT_URL || 'http://localhost:4566'
+const endpointUrl = import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
 const region = import.meta.env.VITE_AWS_REGION || 'us-east-1'
 </script>
