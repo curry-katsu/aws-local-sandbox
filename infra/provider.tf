@@ -22,6 +22,7 @@ provider "aws" {
     apigateway     = var.aws_endpoint_url
     cloudformation = var.aws_endpoint_url
     cloudwatch     = var.aws_endpoint_url
+    cognitoidp     = var.aws_endpoint_url
     dynamodb       = var.aws_endpoint_url
     ec2            = var.aws_endpoint_url
     ecr            = var.aws_endpoint_url

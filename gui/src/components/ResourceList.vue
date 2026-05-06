@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-h6">Resources</h2>
         <p class="text-body-2 text-medium-emphasis ma-0">
-          S3, DynamoDB, and SQS resources discovered through AWS SDK v3.
+          S3, DynamoDB, SQS, and Cognito resources discovered through AWS SDK v3.
         </p>
       </div>
       <v-btn
@@ -56,8 +56,13 @@ import { onMounted, ref } from 'vue'
 import { DynamoDBClient, ListTablesCommand } from '@aws-sdk/client-dynamodb'
 import { ListBucketsCommand, S3Client } from '@aws-sdk/client-s3'
 import { ListQueuesCommand, SQSClient } from '@aws-sdk/client-sqs'
+import {
+  CognitoIdentityProviderClient,
+  ListUserPoolClientsCommand,
+  ListUserPoolsCommand,
+} from '@aws-sdk/client-cognito-identity-provider'
 
-const endpoint = import.meta.env.VITE_AWS_ENDPOINT_URL || 'http://localhost:4566'
+const endpoint = import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
 const region = import.meta.env.VITE_AWS_REGION || 'us-east-1'
 const credentials = {
   accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || 'test',
@@ -74,6 +79,7 @@ const clientConfig = {
 const s3 = new S3Client(clientConfig)
 const dynamodb = new DynamoDBClient(clientConfig)
 const sqs = new SQSClient(clientConfig)
+const cognito = new CognitoIdentityProviderClient(clientConfig)
 
 const loading = ref(false)
 const error = ref('')
@@ -84,10 +90,11 @@ async function loadResources() {
   error.value = ''
 
   try {
-    const [bucketResult, tableResult, queueResult] = await Promise.all([
+    const [bucketResult, tableResult, queueResult, userPoolResult] = await Promise.all([
       s3.send(new ListBucketsCommand({})),
       dynamodb.send(new ListTablesCommand({})),
       sqs.send(new ListQueuesCommand({})),
+      cognito.send(new ListUserPoolsCommand({ MaxResults: 60 })),
     ])
 
     const buckets = (bucketResult.Buckets || []).map((bucket) => ({
@@ -108,7 +115,31 @@ async function loadResources() {
       id: queueUrl,
     }))
 
-    resources.value = [...buckets, ...tables, ...queues]
+    const userPools = await Promise.all(
+      (userPoolResult.UserPools || []).map(async (userPool) => {
+        const clients = await cognito.send(
+          new ListUserPoolClientsCommand({
+            UserPoolId: userPool.Id,
+            MaxResults: 60,
+          }),
+        )
+
+        return [
+          {
+            service: 'Cognito User Pool',
+            name: userPool.Name,
+            id: userPool.Id,
+          },
+          ...(clients.UserPoolClients || []).map((client) => ({
+            service: 'Cognito Client',
+            name: client.ClientName,
+            id: client.ClientId,
+          })),
+        ]
+      }),
+    )
+
+    resources.value = [...buckets, ...tables, ...queues, ...userPools.flat()]
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Failed to load resources.'
   } finally {

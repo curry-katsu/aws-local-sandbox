@@ -23,9 +23,13 @@ services:
       - "5173:5173"
     environment:
       VITE_AWS_ENDPOINT_URL: ${VITE_AWS_ENDPOINT_URL:-http://localhost:4566}
+      VITE_AWS_BROWSER_ENDPOINT_URL: ${VITE_AWS_BROWSER_ENDPOINT_URL:-}
       VITE_AWS_REGION: ${VITE_AWS_REGION:-us-east-1}
       VITE_AWS_ACCESS_KEY_ID: ${VITE_AWS_ACCESS_KEY_ID:-test}
       VITE_AWS_SECRET_ACCESS_KEY: ${VITE_AWS_SECRET_ACCESS_KEY:-test}
+      VITE_COGNITO_USER_POOL_ID: ${VITE_COGNITO_USER_POOL_ID:-}
+      VITE_COGNITO_USER_POOL_CLIENT_ID: ${VITE_COGNITO_USER_POOL_CLIENT_ID:-}
+      FLOCI_PROXY_TARGET: ${FLOCI_PROXY_TARGET:-http://floci:4566}
     volumes:
       - ./gui:/app
       - gui-node-modules:/app/node_modules

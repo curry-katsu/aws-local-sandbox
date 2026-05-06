@@ -1,13 +1,13 @@
 # aws-local-sandbox
 
-AWS 互換のローカル検証環境です。Floci、Terraform、Vue 3/Vuetify の GUI を使い、AI エージェントと人間が同じ手順でローカルクラウドリソースを作成・確認できます。
+`aws-local-sandbox` is a local AWS-compatible verification environment. It uses Floci, Terraform, and a Vue 3/Vuetify GUI so AI agents and humans can create and inspect local cloud resources through the same workflow.
 
-## 構成
+## Architecture
 
-- Floci: LocalStack 互換 AWS エミュレータ
-- Terraform: S3、DynamoDB、SQS のローカル作成
-- Vue 3 + Vite + Vuetify 3: ローカルリソース確認 GUI
-- Makefile: 起動、停止、IaC、GUI 操作の共通入口
+- Floci: LocalStack-compatible AWS emulator.
+- Terraform: Local provisioning for S3, DynamoDB, SQS, and Cognito.
+- Vue 3 + Vite + Vuetify 3: GUI for inspecting local resources and testing Cognito login.
+- Makefile: Shared entry point for service lifecycle, IaC, GUI, and verification tasks.
 
 ## Quick Start
 
@@ -23,7 +23,14 @@ GUI:
 open http://localhost:5173
 ```
 
-ローカルで GUI を起動する場合:
+The GUI includes an Amplify login verification panel for the Cognito User Pool. Create the verification user before signing in from the GUI.
+
+```sh
+make verify-cognito-install
+make verify-cognito-login-jwt
+```
+
+To run the GUI locally outside Docker Compose:
 
 ```sh
 make gui-install
@@ -47,7 +54,7 @@ make smoke
 
 ## Verification Tool
 
-SQS から message を読み取り、DynamoDB に保存し、処理ログ JSON を S3 にアップロードする検証ツールを `verification/sqs_to_dynamodb_s3_log/` に配置しています。
+The SQS / DynamoDB / S3 verification tool lives in `verification/sqs_to_dynamodb_s3_log/`. It reads messages from SQS, writes them to DynamoDB, and uploads JSON processing logs to S3.
 
 ```sh
 make verify-install
@@ -58,11 +65,19 @@ make verify-s3-ls
 make verify-s3-cat FILE=verification-logs/YYYY/MM/DD/<run-id>.json
 ```
 
+The Cognito verification tool lives in `verification/cognito_user_create/`. It creates a local Cognito user, optionally sets a permanent password, and can request JWTs with AWS CLI.
+
+```sh
+make verify-cognito-install
+make verify-cognito-create-user
+make verify-cognito-login-jwt
+```
+
 ## Data Persistence
 
-Floci の状態は `FLOCI_STORAGE_MODE=persistent` で `data/floci/` に永続化されます。`make down` では削除されません。
+Floci state is persisted in `data/floci/` when `FLOCI_STORAGE_MODE=persistent` is enabled. `make down` does not delete this data.
 
-Docker Compose の named volume と Floci の永続化データをまとめて削除する場合は次を実行します。
+To remove both Docker Compose named volumes and persisted Floci data, run:
 
 ```sh
 make clean
