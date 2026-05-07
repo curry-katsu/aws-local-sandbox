@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-h6">Resources</h2>
         <p class="text-body-2 text-medium-emphasis ma-0">
-          S3, DynamoDB, SQS, and Cognito resources discovered through AWS SDK v3.
+          S3, DynamoDB, SQS, Cognito, EventBridge, and Step Functions resources discovered through AWS SDK v3.
         </p>
       </div>
       <v-btn
@@ -54,7 +54,9 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { DynamoDBClient, ListTablesCommand } from '@aws-sdk/client-dynamodb'
+import { EventBridgeClient, ListRulesCommand } from '@aws-sdk/client-eventbridge'
 import { ListBucketsCommand, S3Client } from '@aws-sdk/client-s3'
+import { ListStateMachinesCommand, SFNClient } from '@aws-sdk/client-sfn'
 import { ListQueuesCommand, SQSClient } from '@aws-sdk/client-sqs'
 import {
   CognitoIdentityProviderClient,
@@ -80,6 +82,8 @@ const s3 = new S3Client(clientConfig)
 const dynamodb = new DynamoDBClient(clientConfig)
 const sqs = new SQSClient(clientConfig)
 const cognito = new CognitoIdentityProviderClient(clientConfig)
+const eventbridge = new EventBridgeClient(clientConfig)
+const sfn = new SFNClient(clientConfig)
 
 const loading = ref(false)
 const error = ref('')
@@ -90,11 +94,20 @@ async function loadResources() {
   error.value = ''
 
   try {
-    const [bucketResult, tableResult, queueResult, userPoolResult] = await Promise.all([
+    const [
+      bucketResult,
+      tableResult,
+      queueResult,
+      userPoolResult,
+      ruleResult,
+      stateMachineResult,
+    ] = await Promise.all([
       s3.send(new ListBucketsCommand({})),
       dynamodb.send(new ListTablesCommand({})),
       sqs.send(new ListQueuesCommand({})),
       cognito.send(new ListUserPoolsCommand({ MaxResults: 60 })),
+      eventbridge.send(new ListRulesCommand({ Limit: 100 })),
+      sfn.send(new ListStateMachinesCommand({ maxResults: 100 })),
     ])
 
     const buckets = (bucketResult.Buckets || []).map((bucket) => ({
@@ -139,7 +152,26 @@ async function loadResources() {
       }),
     )
 
-    resources.value = [...buckets, ...tables, ...queues, ...userPools.flat()]
+    const rules = (ruleResult.Rules || []).map((rule) => ({
+      service: 'EventBridge Rule',
+      name: rule.Name,
+      id: rule.Arn,
+    }))
+
+    const stateMachines = (stateMachineResult.stateMachines || []).map((stateMachine) => ({
+      service: 'Step Functions',
+      name: stateMachine.name,
+      id: stateMachine.stateMachineArn,
+    }))
+
+    resources.value = [
+      ...buckets,
+      ...tables,
+      ...queues,
+      ...userPools.flat(),
+      ...rules,
+      ...stateMachines,
+    ]
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Failed to load resources.'
   } finally {

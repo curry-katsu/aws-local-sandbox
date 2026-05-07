@@ -13,6 +13,8 @@
         <v-list-item prepend-icon="mdi-database-outline" title="DynamoDB" />
         <v-list-item prepend-icon="mdi-message-outline" title="SQS" />
         <v-list-item prepend-icon="mdi-account-key-outline" title="Cognito" />
+        <v-list-item prepend-icon="mdi-calendar-clock-outline" title="EventBridge" />
+        <v-list-item prepend-icon="mdi-transit-connection-variant" title="Step Functions" />
       </v-list>
     </v-navigation-drawer>
 
@@ -47,6 +49,8 @@
         </v-row>
 
         <CognitoLoginVerifier class="mb-6" />
+        <EventBridgeVerifier class="mb-6" />
+        <StepFunctionsVerifier class="mb-6" />
         <ResourceList />
       </v-container>
     </v-main>
@@ -55,7 +59,9 @@
 
 <script setup>
 import CognitoLoginVerifier from './components/CognitoLoginVerifier.vue'
+import EventBridgeVerifier from './components/EventBridgeVerifier.vue'
 import ResourceList from './components/ResourceList.vue'
+import StepFunctionsVerifier from './components/StepFunctionsVerifier.vue'
 
 const endpointUrl = import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
 const region = import.meta.env.VITE_AWS_REGION || 'us-east-1'
