@@ -2,6 +2,11 @@ terraform {
   required_version = ">= 1.6.0"
 
   required_providers {
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.7"
+    }
+
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
@@ -34,6 +39,7 @@ provider "aws" {
     s3             = var.aws_endpoint_url
     sns            = var.aws_endpoint_url
     sqs            = var.aws_endpoint_url
+    sfn            = var.aws_endpoint_url
     sts            = var.aws_endpoint_url
   }
 }

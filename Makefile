@@ -15,8 +15,10 @@ S3_LOG_PREFIX ?= verification-logs
 VERIFY_MESSAGE_BODY ?= {"source":"make","message":"hello from aws-local-sandbox"}
 COGNITO_USERNAME ?= sandbox-user@example.com
 COGNITO_PASSWORD ?= Sandbox123
+EVENTBRIDGE_INVOKE_OUTPUT ?= /tmp/aws-local-sandbox-eventbridge-daily-noon-response.json
+STEPFUNCTIONS_INPUT ?= {"source":"make","message":"hello from Step Functions"}
 
-.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint fmt clean
+.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint verify-eventbridge-rule verify-eventbridge-targets verify-eventbridge-invoke-lambda verify-stepfunctions-state-machine verify-stepfunctions-start-execution verify-stepfunctions-execution-history fmt clean
 
 help:
 	@printf '%s\n' \
@@ -44,6 +46,12 @@ help:
 		'  make verify-cognito-login-jwt Create/login a Cognito user and print JWTs' \
 		'  make verify-cognito-format Format Cognito verification Python code' \
 		'  make verify-cognito-lint Lint Cognito verification Python code' \
+		'  make verify-eventbridge-rule Describe the daily noon JST EventBridge rule' \
+		'  make verify-eventbridge-targets List targets for the daily noon JST EventBridge rule' \
+		'  make verify-eventbridge-invoke-lambda Invoke the scheduled Lambda manually' \
+		'  make verify-stepfunctions-state-machine Describe the demo Step Functions state machine' \
+		'  make verify-stepfunctions-start-execution Start and describe a demo Step Functions execution' \
+		'  make verify-stepfunctions-execution-history EXECUTION_ARN=<arn> Print execution history' \
 		'  make fmt           Format Terraform files' \
 		'  make clean         Stop containers and delete local persisted Floci data'
 
@@ -145,6 +153,64 @@ verify-cognito-lint:
 	cd verification/cognito_user_create && poetry run isort --check-only .
 	cd verification/cognito_user_create && poetry run black --check .
 	cd verification/cognito_user_create && poetry run flake8 .
+
+verify-eventbridge-rule:
+	@set -eu; \
+	RULE_NAME="$${EVENTBRIDGE_DAILY_NOON_RULE_NAME:-$$(cd infra && terraform output -raw eventbridge_daily_noon_rule_name)}"; \
+	$(AWS_LOCAL_ENV) aws events describe-rule \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--name "$$RULE_NAME"
+
+verify-eventbridge-targets:
+	@set -eu; \
+	RULE_NAME="$${EVENTBRIDGE_DAILY_NOON_RULE_NAME:-$$(cd infra && terraform output -raw eventbridge_daily_noon_rule_name)}"; \
+	$(AWS_LOCAL_ENV) aws events list-targets-by-rule \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--rule "$$RULE_NAME"
+
+verify-eventbridge-invoke-lambda:
+	@set -eu; \
+	LAMBDA_NAME="$${EVENTBRIDGE_DAILY_NOON_LAMBDA_NAME:-$$(cd infra && terraform output -raw eventbridge_daily_noon_lambda_name)}"; \
+	$(AWS_LOCAL_ENV) aws lambda invoke \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--function-name "$$LAMBDA_NAME" \
+		--cli-binary-format raw-in-base64-out \
+		--payload '{"source":"manual-verification","detail":{"trigger":"make verify-eventbridge-invoke-lambda"}}' \
+		$(EVENTBRIDGE_INVOKE_OUTPUT); \
+	printf '\n%s\n' 'Lambda response payload:'; \
+	cat $(EVENTBRIDGE_INVOKE_OUTPUT); \
+	printf '\n'
+
+verify-stepfunctions-state-machine:
+	@set -eu; \
+	STATE_MACHINE_ARN="$${STEPFUNCTIONS_STATE_MACHINE_ARN:-$$(cd infra && terraform output -raw stepfunctions_demo_state_machine_arn)}"; \
+	$(AWS_LOCAL_ENV) aws stepfunctions describe-state-machine \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--state-machine-arn "$$STATE_MACHINE_ARN"
+
+verify-stepfunctions-start-execution:
+	@set -eu; \
+	STATE_MACHINE_ARN="$${STEPFUNCTIONS_STATE_MACHINE_ARN:-$$(cd infra && terraform output -raw stepfunctions_demo_state_machine_arn)}"; \
+	EXECUTION_NAME="$${STEPFUNCTIONS_EXECUTION_NAME:-demo-$$(date +%s)}"; \
+	EXECUTION_ARN="$$( \
+		$(AWS_LOCAL_ENV) aws stepfunctions start-execution \
+			--endpoint-url $(AWS_ENDPOINT_URL) \
+			--state-machine-arn "$$STATE_MACHINE_ARN" \
+			--name "$$EXECUTION_NAME" \
+			--input '$(STEPFUNCTIONS_INPUT)' \
+			--query executionArn \
+			--output text \
+	)"; \
+	printf 'Started execution: %s\n\n' "$$EXECUTION_ARN"; \
+	$(AWS_LOCAL_ENV) aws stepfunctions describe-execution \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--execution-arn "$$EXECUTION_ARN"
+
+verify-stepfunctions-execution-history:
+	@test -n "$(EXECUTION_ARN)" || (printf '%s\n' 'Usage: make verify-stepfunctions-execution-history EXECUTION_ARN=<execution-arn>' && exit 2)
+	$(AWS_LOCAL_ENV) aws stepfunctions get-execution-history \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--execution-arn "$(EXECUTION_ARN)"
 
 fmt:
 	cd infra && terraform fmt
