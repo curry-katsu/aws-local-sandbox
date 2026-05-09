@@ -5,7 +5,7 @@
 ## Architecture
 
 - Floci: LocalStack-compatible AWS emulator.
-- Terraform: Local provisioning for S3, DynamoDB, SQS, and Cognito.
+- Terraform: Local provisioning for S3, DynamoDB, SQS, SNS, and Cognito.
 - Vue 3 + Vite + Vuetify 3: GUI for inspecting local resources and testing Cognito login.
 - Makefile: Shared entry point for service lifecycle, IaC, GUI, and verification tasks.
 
@@ -63,6 +63,14 @@ make verify-run
 make verify-dynamodb-scan
 make verify-s3-ls
 make verify-s3-cat FILE=verification-logs/YYYY/MM/DD/<run-id>.json
+```
+
+SNS fanout is provisioned as one SNS topic with two SQS subscriptions.
+
+```sh
+make verify-sns-topics
+make verify-sns-subscriptions
+make verify-sns-fanout
 ```
 
 The Cognito verification tool lives in `verification/cognito_user_create/`. It creates a local Cognito user, optionally sets a permanent password, and can request JWTs with AWS CLI.
