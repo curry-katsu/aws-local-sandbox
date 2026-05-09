@@ -13,12 +13,13 @@ DYNAMODB_TABLE_NAME ?= aws-local-sandbox-table
 S3_BUCKET_NAME ?= aws-local-sandbox-bucket
 S3_LOG_PREFIX ?= verification-logs
 VERIFY_MESSAGE_BODY ?= {"source":"make","message":"hello from aws-local-sandbox"}
+SNS_FANOUT_MESSAGE ?= {"source":"make","message":"hello from SNS fanout","sent_at":"$(shell date -u +%Y-%m-%dT%H:%M:%SZ)"}
 COGNITO_USERNAME ?= sandbox-user@example.com
 COGNITO_PASSWORD ?= Sandbox123
 EVENTBRIDGE_INVOKE_OUTPUT ?= /tmp/aws-local-sandbox-eventbridge-daily-noon-response.json
 STEPFUNCTIONS_INPUT ?= {"source":"make","message":"hello from Step Functions"}
 
-.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint verify-eventbridge-rule verify-eventbridge-targets verify-eventbridge-invoke-lambda verify-stepfunctions-state-machine verify-stepfunctions-start-execution verify-stepfunctions-execution-history fmt clean
+.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-sns-topics verify-sns-subscriptions verify-sns-publish verify-sns-receive-primary verify-sns-receive-secondary verify-sns-fanout verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint verify-eventbridge-rule verify-eventbridge-targets verify-eventbridge-invoke-lambda verify-stepfunctions-state-machine verify-stepfunctions-start-execution verify-stepfunctions-execution-history fmt clean
 
 help:
 	@printf '%s\n' \
@@ -41,6 +42,9 @@ help:
 		'  make verify-s3-cat FILE=<key> Print an S3 object body' \
 		'  make verify-format Format verification Python code with black and isort' \
 		'  make verify-lint   Lint verification Python code with black, isort, and flake8' \
+		'  make verify-sns-topics List SNS topics' \
+		'  make verify-sns-subscriptions List SNS subscriptions' \
+		'  make verify-sns-fanout Publish one SNS message and read it from both subscribed SQS queues' \
 		'  make verify-cognito-install Install Cognito verification tool dependencies' \
 		'  make verify-cognito-create-user Create a sample Cognito user' \
 		'  make verify-cognito-login-jwt Create/login a Cognito user and print JWTs' \
@@ -89,6 +93,7 @@ smoke:
 	$(AWS_LOCAL_ENV) aws s3 ls --endpoint-url $(AWS_ENDPOINT_URL)
 	$(AWS_LOCAL_ENV) aws dynamodb list-tables --endpoint-url $(AWS_ENDPOINT_URL)
 	$(AWS_LOCAL_ENV) aws sqs list-queues --endpoint-url $(AWS_ENDPOINT_URL)
+	$(AWS_LOCAL_ENV) aws sns list-topics --endpoint-url $(AWS_ENDPOINT_URL)
 
 verify-install:
 	cd verification/sqs_to_dynamodb_s3_log && poetry install
@@ -117,6 +122,43 @@ verify-lint:
 	cd verification/sqs_to_dynamodb_s3_log && poetry run isort --check-only .
 	cd verification/sqs_to_dynamodb_s3_log && poetry run black --check .
 	cd verification/sqs_to_dynamodb_s3_log && poetry run flake8 .
+
+verify-sns-topics:
+	$(AWS_LOCAL_ENV) aws sns list-topics --endpoint-url $(AWS_ENDPOINT_URL)
+
+verify-sns-subscriptions:
+	$(AWS_LOCAL_ENV) aws sns list-subscriptions --endpoint-url $(AWS_ENDPOINT_URL)
+
+verify-sns-publish:
+	@set -eu; \
+	TOPIC_ARN="$${SNS_FANOUT_TOPIC_ARN:-$$(cd infra && terraform output -raw sns_fanout_topic_arn)}"; \
+	$(AWS_LOCAL_ENV) aws sns publish \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--topic-arn "$$TOPIC_ARN" \
+		--message '$(SNS_FANOUT_MESSAGE)'
+
+verify-sns-receive-primary:
+	@set -eu; \
+	QUEUE_URL="$${SNS_FANOUT_PRIMARY_QUEUE_URL:-$$(cd infra && terraform output -raw sns_fanout_primary_queue_url)}"; \
+	$(AWS_LOCAL_ENV) aws sqs receive-message \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--queue-url "$$QUEUE_URL" \
+		--max-number-of-messages 10 \
+		--wait-time-seconds 2
+
+verify-sns-receive-secondary:
+	@set -eu; \
+	QUEUE_URL="$${SNS_FANOUT_SECONDARY_QUEUE_URL:-$$(cd infra && terraform output -raw sns_fanout_secondary_queue_url)}"; \
+	$(AWS_LOCAL_ENV) aws sqs receive-message \
+		--endpoint-url $(AWS_ENDPOINT_URL) \
+		--queue-url "$$QUEUE_URL" \
+		--max-number-of-messages 10 \
+		--wait-time-seconds 2
+
+verify-sns-fanout:
+	$(MAKE) verify-sns-publish
+	$(MAKE) verify-sns-receive-primary
+	$(MAKE) verify-sns-receive-secondary
 
 verify-cognito-install:
 	cd verification/cognito_user_create && poetry install

@@ -10,6 +10,18 @@ output "sqs_queue_url" {
   value = aws_sqs_queue.sandbox.url
 }
 
+output "sns_fanout_topic_arn" {
+  value = aws_sns_topic.sandbox_fanout.arn
+}
+
+output "sns_fanout_primary_queue_url" {
+  value = aws_sqs_queue.sns_fanout_primary.url
+}
+
+output "sns_fanout_secondary_queue_url" {
+  value = aws_sqs_queue.sns_fanout_secondary.url
+}
+
 output "cognito_user_pool_id" {
   value = aws_cognito_user_pool.sandbox.id
 }
