@@ -143,41 +143,56 @@
               </v-btn>
             </div>
 
-            <v-table density="compact" class="item-table">
-              <thead>
-                <tr>
-                  <th class="select-column">Select</th>
-                  <th v-for="column in itemColumns" :key="column">{{ column }}</th>
-                  <th>Raw JSON</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="!loadingItems && displayItems.length === 0">
-                  <td :colspan="itemColumns.length + 2" class="text-medium-emphasis">
-                    No items loaded.
-                  </td>
-                </tr>
-                <tr
-                  v-for="(item, index) in displayItems"
-                  :key="item.__rowKey"
-                  :class="{ 'selected-row': selectedItemIndex === index }"
-                  @click="selectedItemIndex = index"
-                >
-                  <td>
-                    <v-radio
-                      :model-value="selectedItemIndex"
-                      :value="index"
-                      density="compact"
-                      hide-details
-                    />
-                  </td>
-                  <td v-for="column in itemColumns" :key="column" class="value-cell">
-                    {{ formatCellValue(item.value[column]) }}
-                  </td>
-                  <td class="json-cell">{{ formatJsonCompact(item.value) }}</td>
-                </tr>
-              </tbody>
-            </v-table>
+            <div class="item-table-wrap">
+              <v-table density="compact" class="item-table">
+                <thead>
+                  <tr>
+                    <th class="select-column">Select</th>
+                    <th v-for="column in itemColumns" :key="column" class="value-column">
+                      {{ column }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="!loadingItems && displayItems.length === 0">
+                    <td :colspan="itemColumns.length + 1" class="text-medium-emphasis">
+                      No items loaded.
+                    </td>
+                  </tr>
+                  <tr
+                    v-for="(item, index) in displayItems"
+                    :key="item.__rowKey"
+                    :class="{ 'selected-row': selectedItemIndex === index }"
+                    @click="selectedItemIndex = index"
+                  >
+                    <td>
+                      <v-radio
+                        :model-value="selectedItemIndex"
+                        :value="index"
+                        density="compact"
+                        hide-details
+                      />
+                    </td>
+                    <td
+                      v-for="column in itemColumns"
+                      :key="column"
+                      class="value-cell"
+                      :title="formatCellValue(item.value[column])"
+                    >
+                      {{ formatCellValue(item.value[column]) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </div>
+
+            <v-expansion-panels v-if="selectedItem" class="selected-item-panel" variant="accordion">
+              <v-expansion-panel title="Selected item JSON">
+                <v-expansion-panel-text>
+                  <pre>{{ formatJson(selectedItem.value) }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
           </v-window-item>
 
           <v-window-item value="schema">
@@ -459,10 +474,6 @@ function formatJson(value) {
   return JSON.stringify(value || {}, null, 2)
 }
 
-function formatJsonCompact(value) {
-  return JSON.stringify(value)
-}
-
 function messageFromError(caught, fallback) {
   if (caught instanceof SyntaxError) return 'Item JSON is invalid.'
   if (caught instanceof Error && caught.message) return caught.message
@@ -536,12 +547,23 @@ onMounted(loadTables)
   flex: 0 0 160px;
 }
 
+.item-table-wrap {
+  margin: 0 16px 16px;
+  overflow-x: auto;
+}
+
 .item-table {
-  padding: 0 16px 16px;
+  min-width: 760px;
+  table-layout: fixed;
 }
 
 .select-column {
   width: 82px;
+}
+
+.value-column {
+  min-width: 160px;
+  width: 220px;
 }
 
 .selected-row {
@@ -549,17 +571,21 @@ onMounted(loadTables)
 }
 
 .value-cell,
-.json-cell,
 pre,
 .dialog-preview {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8125rem;
 }
 
-.value-cell,
-.json-cell {
-  max-width: 340px;
-  overflow-wrap: anywhere;
+.value-cell {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-item-panel {
+  padding: 0 16px 16px;
 }
 
 .schema-grid {

@@ -8,14 +8,12 @@
             Publish messages and inspect local subscriptions.
           </p>
         </div>
-        <v-btn color="primary" prepend-icon="mdi-refresh" :loading="loadingTopics" @click="loadTopics">
-          Refresh
-        </v-btn>
-      </div>
-
-      <div class="create-topic">
-        <v-text-field v-model="newTopicName" label="New topic name" density="compact" variant="outlined" hide-details />
-        <v-btn variant="tonal" prepend-icon="mdi-plus" :loading="creatingTopic" @click="createTopic">Create</v-btn>
+        <div class="panel-actions">
+          <v-btn variant="tonal" icon="mdi-refresh" :loading="loadingTopics" @click="loadTopics" />
+          <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateTopic">
+            New topic
+          </v-btn>
+        </div>
       </div>
 
       <v-alert v-if="error" class="mx-4 mb-4" type="error" variant="tonal" density="comfortable">
@@ -43,7 +41,53 @@
       </v-list>
     </v-sheet>
 
-    <v-sheet border rounded="lg" class="main-panel">
+    <v-sheet v-if="isCreatingTopic" border rounded="lg" class="main-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="text-h6">Create SNS topic</h2>
+          <p class="text-body-2 text-medium-emphasis ma-0">
+            Create one local topic, then return to the selected topic detail.
+          </p>
+        </div>
+      </div>
+
+      <v-divider />
+
+      <div class="create-panel">
+        <v-text-field
+          v-model="newTopicName"
+          label="Topic name"
+          density="comfortable"
+          variant="outlined"
+          hide-details="auto"
+        />
+        <v-alert v-if="topicNameAlreadyExists" type="info" variant="tonal" density="comfortable">
+          A topic with this name already exists. Select the existing topic instead of creating another.
+        </v-alert>
+        <div class="editor-actions">
+          <v-btn variant="text" @click="cancelCreateTopic">Cancel</v-btn>
+          <v-btn
+            v-if="topicNameAlreadyExists"
+            variant="tonal"
+            prepend-icon="mdi-open-in-new"
+            @click="selectExistingTopicByName"
+          >
+            Open existing
+          </v-btn>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-plus"
+            :disabled="!newTopicName.trim() || topicNameAlreadyExists"
+            :loading="creatingTopic"
+            @click="createTopic"
+          >
+            Create topic
+          </v-btn>
+        </div>
+      </div>
+    </v-sheet>
+
+    <v-sheet v-else border rounded="lg" class="main-panel">
       <div class="panel-header">
         <div>
           <h2 class="text-h6">{{ selectedTopicName || 'Select a topic' }}</h2>
@@ -57,6 +101,9 @@
           </v-btn>
           <v-btn color="primary" prepend-icon="mdi-send-outline" :disabled="!selectedTopicArn" :loading="publishing" @click="publishMessage">
             Publish
+          </v-btn>
+          <v-btn variant="tonal" color="error" prepend-icon="mdi-delete-outline" :disabled="!selectedTopicArn" @click="deleteTopicDialog = true">
+            Delete
           </v-btn>
         </div>
       </div>
@@ -131,9 +178,6 @@
               <v-btn color="primary" prepend-icon="mdi-content-save-outline" :loading="savingAttribute" @click="saveDisplayName">
                 Save display name
               </v-btn>
-              <v-btn variant="tonal" color="error" prepend-icon="mdi-delete-outline" @click="deleteTopicDialog = true">
-                Delete topic
-              </v-btn>
             </div>
             <v-expansion-panels class="raw-panel" variant="accordion">
               <v-expansion-panel title="Raw attributes">
@@ -179,6 +223,7 @@ const selectedTopicArn = ref('')
 const attributes = ref({})
 const subscriptions = ref([])
 const activeTab = ref('publish')
+const isCreatingTopic = ref(false)
 const subject = ref('Message from GUI')
 const message = ref('')
 const displayName = ref('')
@@ -194,6 +239,9 @@ const error = ref('')
 const statusMessage = ref('')
 
 const selectedTopicName = computed(() => topicName(selectedTopicArn.value))
+const topicNameAlreadyExists = computed(() =>
+  topics.value.some((topic) => topicName(topic.TopicArn) === newTopicName.value.trim()),
+)
 
 async function loadTopics() {
   loadingTopics.value = true
@@ -215,10 +263,31 @@ async function loadTopics() {
 }
 
 async function selectTopic(topicArn) {
+  isCreatingTopic.value = false
   selectedTopicArn.value = topicArn
   activeTab.value = 'publish'
   resetMessage()
   await loadTopicDetail()
+}
+
+function openCreateTopic() {
+  isCreatingTopic.value = true
+  error.value = ''
+  statusMessage.value = ''
+  newTopicName.value = nextTopicName()
+}
+
+function cancelCreateTopic() {
+  isCreatingTopic.value = false
+}
+
+async function selectExistingTopicByName() {
+  const existingTopic = topics.value.find(
+    (topic) => topicName(topic.TopicArn) === newTopicName.value.trim(),
+  )
+  if (existingTopic?.TopicArn) {
+    await selectTopic(existingTopic.TopicArn)
+  }
 }
 
 async function loadTopicDetail() {
@@ -286,6 +355,7 @@ async function createTopic() {
     statusMessage.value = `Created ${newTopicName.value.trim()}.`
     await loadTopics()
     if (topicArn) await selectTopic(topicArn)
+    isCreatingTopic.value = false
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to create SNS topic.')
   } finally {
@@ -314,6 +384,7 @@ async function deleteTopic() {
 }
 
 function resetSelection() {
+  isCreatingTopic.value = false
   selectedTopicArn.value = ''
   attributes.value = {}
   subscriptions.value = []
@@ -327,6 +398,19 @@ function resetMessage() {
 
 function topicName(topicArn) {
   return topicArn?.split(':').pop() || ''
+}
+
+function nextTopicName() {
+  const baseName = 'aws-local-sandbox-gui-topic'
+  if (!topics.value.some((topic) => topicName(topic.TopicArn) === baseName)) {
+    return baseName
+  }
+
+  let index = 2
+  while (topics.value.some((topic) => topicName(topic.TopicArn) === `${baseName}-${index}`)) {
+    index += 1
+  }
+  return `${baseName}-${index}`
 }
 
 function formatJson(value) {
@@ -362,7 +446,7 @@ onMounted(loadTopics)
   padding: 16px;
 }
 
-.create-topic,
+.create-panel,
 .panel-actions,
 .editor-actions,
 .settings-grid {
@@ -371,12 +455,14 @@ onMounted(loadTopics)
   gap: 8px;
 }
 
-.create-topic {
-  padding: 0 16px 16px;
+.create-panel {
+  align-items: stretch;
+  flex-direction: column;
+  padding: 16px;
 }
 
-.create-topic :deep(.v-input) {
-  flex: 1 1 180px;
+.create-panel :deep(.v-input) {
+  max-width: 520px;
 }
 
 .panel-actions,

@@ -8,9 +8,12 @@
             Send, receive, delete, and tune local queue settings.
           </p>
         </div>
-        <v-btn color="primary" prepend-icon="mdi-refresh" :loading="loadingQueues" @click="loadQueues">
-          Refresh
-        </v-btn>
+        <div class="panel-actions">
+          <v-btn variant="tonal" icon="mdi-refresh" :loading="loadingQueues" @click="loadQueues" />
+          <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateQueue">
+            New queue
+          </v-btn>
+        </div>
       </div>
 
       <v-alert v-if="error" class="mx-4 mb-4" type="error" variant="tonal" density="comfortable">
@@ -38,7 +41,53 @@
       </v-list>
     </v-sheet>
 
-    <v-sheet border rounded="lg" class="main-panel">
+    <v-sheet v-if="isCreatingQueue" border rounded="lg" class="main-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="text-h6">Create SQS queue</h2>
+          <p class="text-body-2 text-medium-emphasis ma-0">
+            Create one local queue, then return to the selected queue detail.
+          </p>
+        </div>
+      </div>
+
+      <v-divider />
+
+      <div class="create-panel">
+        <v-text-field
+          v-model="newQueueName"
+          label="Queue name"
+          density="comfortable"
+          variant="outlined"
+          hide-details="auto"
+        />
+        <v-alert v-if="queueNameAlreadyExists" type="info" variant="tonal" density="comfortable">
+          A queue with this name already exists. Select the existing queue instead of creating another.
+        </v-alert>
+        <div class="editor-actions">
+          <v-btn variant="text" @click="cancelCreateQueue">Cancel</v-btn>
+          <v-btn
+            v-if="queueNameAlreadyExists"
+            variant="tonal"
+            prepend-icon="mdi-open-in-new"
+            @click="selectExistingQueueByName"
+          >
+            Open existing
+          </v-btn>
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-plus"
+            :disabled="!newQueueName.trim() || queueNameAlreadyExists"
+            :loading="creatingQueue"
+            @click="createQueueFromForm"
+          >
+            Create queue
+          </v-btn>
+        </div>
+      </div>
+    </v-sheet>
+
+    <v-sheet v-else border rounded="lg" class="main-panel">
       <div class="panel-header">
         <div>
           <h2 class="text-h6">{{ selectedQueueName || 'Select a queue' }}</h2>
@@ -52,6 +101,9 @@
           </v-btn>
           <v-btn color="primary" prepend-icon="mdi-send-outline" :disabled="!selectedQueueUrl" :loading="sending" @click="sendMessage">
             Send
+          </v-btn>
+          <v-btn variant="tonal" color="error" prepend-icon="mdi-delete-outline" :disabled="!selectedQueueUrl" @click="deleteQueueDialog = true">
+            Delete
           </v-btn>
         </div>
       </div>
@@ -166,12 +218,28 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-dialog v-model="deleteQueueDialog" max-width="520">
+      <v-card>
+        <v-card-title>Delete SQS queue</v-card-title>
+        <v-card-text>
+          Delete <strong>{{ selectedQueueName }}</strong>. This removes the local queue and its messages from Floci.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="deleteQueueDialog = false">Cancel</v-btn>
+          <v-btn color="error" :loading="deletingQueue" @click="deleteSelectedQueue">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
+  createQueue,
+  deleteQueue,
   deleteQueueMessage,
   getQueueAttributes,
   listQueues,
@@ -185,16 +253,21 @@ const selectedQueueUrl = ref('')
 const messages = ref([])
 const attributes = ref({})
 const activeTab = ref('messages')
+const isCreatingQueue = ref(false)
 const receiveCount = ref(5)
 const selectedMessageIndex = ref(null)
 const messageBody = ref('')
+const newQueueName = ref('aws-local-sandbox-gui-queue')
 const loadingQueues = ref(false)
 const loadingAttributes = ref(false)
+const creatingQueue = ref(false)
+const deletingQueue = ref(false)
 const receiving = ref(false)
 const sending = ref(false)
 const savingAttributes = ref(false)
 const deletingMessage = ref(false)
 const deleteMessageDialog = ref(false)
+const deleteQueueDialog = ref(false)
 const error = ref('')
 const statusMessage = ref('')
 const settings = reactive({
@@ -205,6 +278,9 @@ const settings = reactive({
 })
 
 const selectedQueueName = computed(() => selectedQueueUrl.value.split('/').pop() || '')
+const queueNameAlreadyExists = computed(() =>
+  queues.value.some((queue) => queue.name === newQueueName.value.trim()),
+)
 const selectedMessage = computed(() => {
   if (selectedMessageIndex.value === null) return null
   return messages.value[selectedMessageIndex.value] || null
@@ -219,6 +295,8 @@ async function loadQueues() {
     queues.value = await listQueues()
     if (!selectedQueueUrl.value && queues.value.length > 0) {
       await selectQueue(queues.value[0].url)
+    } else if (selectedQueueUrl.value && !queues.value.some((queue) => queue.url === selectedQueueUrl.value)) {
+      resetSelection()
     }
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to load SQS queues.')
@@ -228,12 +306,31 @@ async function loadQueues() {
 }
 
 async function selectQueue(queueUrl) {
+  isCreatingQueue.value = false
   selectedQueueUrl.value = queueUrl
   messages.value = []
   selectedMessageIndex.value = null
   activeTab.value = 'messages'
   resetMessage()
   await loadAttributes()
+}
+
+function openCreateQueue() {
+  isCreatingQueue.value = true
+  error.value = ''
+  statusMessage.value = ''
+  newQueueName.value = nextQueueName()
+}
+
+function cancelCreateQueue() {
+  isCreatingQueue.value = false
+}
+
+async function selectExistingQueueByName() {
+  const existingQueue = queues.value.find((queue) => queue.name === newQueueName.value.trim())
+  if (existingQueue?.url) {
+    await selectQueue(existingQueue.url)
+  }
 }
 
 async function loadAttributes() {
@@ -325,6 +422,57 @@ async function saveAttributes() {
   }
 }
 
+async function createQueueFromForm() {
+  if (!newQueueName.value.trim()) {
+    error.value = 'Queue name is required.'
+    return
+  }
+
+  creatingQueue.value = true
+  error.value = ''
+  statusMessage.value = ''
+
+  try {
+    const queueUrl = await createQueue(newQueueName.value.trim())
+    statusMessage.value = `Created ${newQueueName.value.trim()}.`
+    await loadQueues()
+    if (queueUrl) await selectQueue(queueUrl)
+    isCreatingQueue.value = false
+  } catch (caught) {
+    error.value = messageFromError(caught, 'Failed to create SQS queue.')
+  } finally {
+    creatingQueue.value = false
+  }
+}
+
+async function deleteSelectedQueue() {
+  if (!selectedQueueUrl.value) return
+  deletingQueue.value = true
+  error.value = ''
+  statusMessage.value = ''
+
+  try {
+    const deletedName = selectedQueueName.value
+    await deleteQueue(selectedQueueUrl.value)
+    deleteQueueDialog.value = false
+    resetSelection()
+    statusMessage.value = `Deleted ${deletedName}.`
+    await loadQueues()
+  } catch (caught) {
+    error.value = messageFromError(caught, 'Failed to delete SQS queue.')
+  } finally {
+    deletingQueue.value = false
+  }
+}
+
+function resetSelection() {
+  isCreatingQueue.value = false
+  selectedQueueUrl.value = ''
+  messages.value = []
+  attributes.value = {}
+  selectedMessageIndex.value = null
+}
+
 function resetMessage() {
   messageBody.value = JSON.stringify({ source: 'gui', message: 'hello from SQS console' }, null, 2)
 }
@@ -333,6 +481,19 @@ function normalizedReceiveCount() {
   const parsed = Number(receiveCount.value)
   if (!Number.isFinite(parsed)) return 5
   return Math.min(Math.max(Math.trunc(parsed), 1), 10)
+}
+
+function nextQueueName() {
+  const baseName = 'aws-local-sandbox-gui-queue'
+  if (!queues.value.some((queue) => queue.name === baseName)) {
+    return baseName
+  }
+
+  let index = 2
+  while (queues.value.some((queue) => queue.name === `${baseName}-${index}`)) {
+    index += 1
+  }
+  return `${baseName}-${index}`
 }
 
 function formatJson(value) {
@@ -369,12 +530,23 @@ onMounted(loadQueues)
 }
 
 .panel-actions,
+.create-panel,
 .editor-actions,
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.create-panel {
+  align-items: stretch;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.create-panel :deep(.v-input) {
+  max-width: 520px;
 }
 
 .empty-state {

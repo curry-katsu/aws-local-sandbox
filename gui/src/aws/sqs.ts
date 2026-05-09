@@ -1,4 +1,6 @@
 import {
+  CreateQueueCommand,
+  DeleteQueueCommand,
   DeleteMessageCommand,
   GetQueueAttributesCommand,
   ListQueuesCommand,
@@ -14,6 +16,15 @@ const sqs = new SQSClient(clientConfig)
 export async function listQueues() {
   const result = await sqs.send(new ListQueuesCommand({}))
   return (result.QueueUrls || []).map((url) => ({ url, name: url.split('/').pop() }))
+}
+
+export async function createQueue(name) {
+  const result = await sqs.send(new CreateQueueCommand({ QueueName: name }))
+  return result.QueueUrl || ''
+}
+
+export async function deleteQueue(queueUrl) {
+  await sqs.send(new DeleteQueueCommand({ QueueUrl: queueUrl }))
 }
 
 export async function getQueueAttributes(queueUrl) {
@@ -65,4 +76,3 @@ export async function setQueueAttributes(queueUrl, attributes) {
     }),
   )
 }
-
