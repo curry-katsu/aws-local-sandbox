@@ -90,29 +90,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import {
-  EventBridgeClient,
-  ListRulesCommand,
-  ListTargetsByRuleCommand,
-} from '@aws-sdk/client-eventbridge'
-import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda'
+  defaultEventBridgeRuleName,
+  invokeLambdaTarget,
+  loadEventBridgeRule,
+} from '../aws/eventbridge'
 
-const endpoint = import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
-const region = import.meta.env.VITE_AWS_REGION || 'us-east-1'
-const ruleName =
-  import.meta.env.VITE_EVENTBRIDGE_RULE_NAME || 'aws-local-sandbox-daily-noon-jst'
-const credentials = {
-  accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || 'test',
-  secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || 'test',
-}
-
-const clientConfig = {
-  endpoint,
-  region,
-  credentials,
-}
-
-const eventbridge = new EventBridgeClient(clientConfig)
-const lambda = new LambdaClient(clientConfig)
+const ruleName = defaultEventBridgeRuleName
 
 const loading = ref(false)
 const invoking = ref(false)
@@ -133,28 +116,10 @@ async function loadRule() {
   statusMessage.value = ''
 
   try {
-    const rulesResult = await eventbridge.send(
-      new ListRulesCommand({
-        NamePrefix: ruleName,
-        Limit: 20,
-      }),
-    )
-    const detectedRule =
-      (rulesResult.Rules || []).find((candidate) => candidate.Name === ruleName) ||
-      (rulesResult.Rules || [])[0]
-
-    if (!detectedRule?.Name) {
-      throw new Error(`No EventBridge rule was found for ${ruleName}.`)
-    }
-
-    rule.value = detectedRule
-    const targetResult = await eventbridge.send(
-      new ListTargetsByRuleCommand({
-        Rule: detectedRule.Name,
-      }),
-    )
-    targets.value = targetResult.Targets || []
-    statusMessage.value = `Loaded ${detectedRule.Name} with ${targets.value.length} target(s).`
+    const result = await loadEventBridgeRule(ruleName)
+    rule.value = result.rule
+    targets.value = result.targets
+    statusMessage.value = `Loaded ${result.rule.Name} with ${targets.value.length} target(s).`
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to load EventBridge rule.')
   } finally {
@@ -173,47 +138,13 @@ async function invokeTargetLambda() {
       await loadRule()
     }
 
-    const functionName = lambdaTargetArn.value.split(':function:')[1]
-    if (!functionName) {
-      throw new Error('No Lambda target ARN was found on the EventBridge rule.')
-    }
-
-    const result = await lambda.send(
-      new InvokeCommand({
-        FunctionName: functionName,
-        InvocationType: 'RequestResponse',
-        Payload: new TextEncoder().encode(
-          JSON.stringify({
-            source: 'gui-verification',
-            detail: {
-              trigger: 'EventBridgeVerifier',
-            },
-          }),
-        ),
-      }),
-    )
-
-    const payloadText = result.Payload ? new TextDecoder().decode(result.Payload) : ''
-    invokeResult.value = {
-      statusCode: result.StatusCode,
-      executedVersion: result.ExecutedVersion,
-      functionError: result.FunctionError,
-      payload: parseJson(payloadText),
-    }
-    statusMessage.value = `Invoked ${functionName}.`
+    const invocation = await invokeLambdaTarget(lambdaTargetArn.value)
+    invokeResult.value = invocation.result
+    statusMessage.value = `Invoked ${invocation.functionName}.`
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to invoke Lambda target.')
   } finally {
     invoking.value = false
-  }
-}
-
-function parseJson(value) {
-  if (!value) return null
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
   }
 }
 

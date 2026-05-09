@@ -105,29 +105,12 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import {
-  DescribeExecutionCommand,
-  DescribeStateMachineCommand,
-  GetExecutionHistoryCommand,
-  ListStateMachinesCommand,
-  SFNClient,
-  StartExecutionCommand,
-} from '@aws-sdk/client-sfn'
+  defaultStateMachineName,
+  loadStateMachineByName,
+  startStateMachineExecution,
+} from '../aws/stepfunctions'
 
-const endpoint = import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
-const region = import.meta.env.VITE_AWS_REGION || 'us-east-1'
-const stateMachineName =
-  import.meta.env.VITE_STEPFUNCTIONS_STATE_MACHINE_NAME ||
-  'aws-local-sandbox-stepfunctions-two-lambdas'
-const credentials = {
-  accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || 'test',
-  secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || 'test',
-}
-
-const sfn = new SFNClient({
-  endpoint,
-  region,
-  credentials,
-})
+const stateMachineName = defaultStateMachineName
 
 const loading = ref(false)
 const starting = ref(false)
@@ -151,25 +134,12 @@ async function loadStateMachine() {
   statusMessage.value = ''
 
   try {
-    const listResult = await sfn.send(new ListStateMachinesCommand({ maxResults: 100 }))
-    const detected =
-      (listResult.stateMachines || []).find((candidate) => candidate.name === stateMachineName) ||
-      (listResult.stateMachines || [])[0]
-
-    if (!detected?.stateMachineArn) {
-      throw new Error(`No Step Functions state machine was found for ${stateMachineName}.`)
-    }
-
-    stateMachine.value = detected
-    stateMachineArn.value = detected.stateMachineArn
-    const detail = await sfn.send(
-      new DescribeStateMachineCommand({
-        stateMachineArn: detected.stateMachineArn,
-      }),
-    )
-    stateMachineDetail.value = detail
-    stateMachineDefinition.value = parseJson(detail.definition)
-    statusMessage.value = `Loaded ${detected.name}.`
+    const result = await loadStateMachineByName(stateMachineName)
+    stateMachine.value = result.stateMachine
+    stateMachineArn.value = result.stateMachineArn
+    stateMachineDetail.value = result.detail
+    stateMachineDefinition.value = result.definition
+    statusMessage.value = `Loaded ${result.stateMachine.name}.`
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to load Step Functions state machine.')
   } finally {
@@ -190,64 +160,15 @@ async function startExecution() {
       await loadStateMachine()
     }
 
-    const input = JSON.stringify(parseJson(executionInput.value))
-    const executionName = `gui-${Date.now()}`
-    const startResult = await sfn.send(
-      new StartExecutionCommand({
-        stateMachineArn: stateMachineArn.value,
-        name: executionName,
-        input,
-      }),
-    )
-
-    const described = await waitForExecution(startResult.executionArn)
-    execution.value = described
-    executionOutput.value = parseJson(described.output)
-
-    const historyResult = await sfn.send(
-      new GetExecutionHistoryCommand({
-        executionArn: startResult.executionArn,
-      }),
-    )
-    historyEvents.value = historyResult.events || []
-    statusMessage.value = `Execution ${executionName} finished with ${described.status}.`
+    const result = await startStateMachineExecution(stateMachineArn.value, executionInput.value)
+    execution.value = result.execution
+    executionOutput.value = result.output
+    historyEvents.value = result.historyEvents
+    statusMessage.value = `Execution ${result.executionName} finished with ${result.execution.status}.`
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to start Step Functions execution.')
   } finally {
     starting.value = false
-  }
-}
-
-async function waitForExecution(executionArn) {
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const result = await sfn.send(
-      new DescribeExecutionCommand({
-        executionArn,
-      }),
-    )
-
-    if (result.status !== 'RUNNING') {
-      return result
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 500))
-  }
-
-  return sfn.send(
-    new DescribeExecutionCommand({
-      executionArn,
-    }),
-  )
-}
-
-function parseJson(value) {
-  if (!value) return null
-  if (typeof value !== 'string') return value
-
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
   }
 }
 
