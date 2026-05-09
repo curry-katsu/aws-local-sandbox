@@ -10,6 +10,7 @@
 - `Makefile`: Canonical task runner for agents and humans.
 - `infra/`: Terraform configuration targeting Floci.
 - `gui/`: Vue 3 + Vite + Vuetify 3 management console.
+- `docs/specifications/`: User-facing specifications. Update these when GUI capabilities change.
 - `verification/`: Nested verification tools. Each tool should live in its own subdirectory, for example `verification/sqs_to_dynamodb_s3_log/`.
 - `data/floci/`: Local persisted Floci state created at runtime.
 
@@ -55,11 +56,22 @@ export VITE_AWS_SECRET_ACCESS_KEY=test
 
 - Keep infrastructure changes in `infra/`.
 - Keep browser GUI changes in `gui/`.
+- Keep GUI specifications in `docs/specifications/`; update the relevant specification whenever adding, removing, or changing GUI behavior.
 - Keep verification utilities in nested directories under `verification/`; do not place `main.py` directly at `verification/`.
 - Do not remove local endpoint settings from Terraform or AWS SDK clients.
 - Do not introduce real cloud account dependencies.
 - Prefer AWS SDK v3 modular clients.
 - Prefer small, explicit Make targets over hidden shell scripts.
+
+## GUI Implementation Rules
+
+- Vue components under `gui/src/components/` should implement UI state, event handlers, and presentation only.
+- Do not import `@aws-sdk/*`, `aws-amplify`, or `aws-amplify/auth` directly from `.vue` files.
+- Do not create AWS SDK clients or call `.send()` directly from `.vue` files.
+- Put browser AWS, Amplify, and Floci access in service modules under `gui/src/aws/`.
+- Keep shared endpoint, region, and dummy credential configuration in `gui/src/aws/config.ts`.
+- Keep destructive GUI actions behind confirmation dialogs.
+- After GUI changes, run `cd gui && npm run build` and update `docs/specifications/gui.md` when behavior changes.
 
 ## Local AWS Connection Contract
 

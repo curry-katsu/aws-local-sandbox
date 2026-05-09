@@ -134,38 +134,20 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Amplify } from 'aws-amplify'
 import {
-  fetchAuthSession,
-  signIn,
-  signOut,
-} from 'aws-amplify/auth'
-import {
-  CognitoIdentityProviderClient,
-  ListUserPoolClientsCommand,
-  ListUserPoolsCommand,
-} from '@aws-sdk/client-cognito-identity-provider'
-
-const defaultEndpoint =
-  import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
-const defaultRegion = import.meta.env.VITE_AWS_REGION || 'us-east-1'
-const defaultUserPoolName =
-  import.meta.env.VITE_COGNITO_USER_POOL_NAME || 'aws-local-sandbox-user-pool'
-const defaultClientName =
-  import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_NAME || 'aws-local-sandbox-user-pool-client'
-
-const credentials = {
-  accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID || 'test',
-  secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY || 'test',
-}
+  cognitoDefaults,
+  discoverCognitoResources,
+  signInToCognito,
+  signOutFromCognito,
+} from '../aws/cognito'
 
 const form = reactive({
-  endpoint: defaultEndpoint,
-  region: defaultRegion,
-  userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
-  userPoolClientId: import.meta.env.VITE_COGNITO_USER_POOL_CLIENT_ID || '',
-  username: import.meta.env.VITE_COGNITO_USERNAME || 'sandbox-user@example.com',
-  password: import.meta.env.VITE_COGNITO_PASSWORD || 'Sandbox123',
+  endpoint: cognitoDefaults.endpoint,
+  region: cognitoDefaults.region,
+  userPoolId: cognitoDefaults.userPoolId,
+  userPoolClientId: cognitoDefaults.userPoolClientId,
+  username: cognitoDefaults.username,
+  password: cognitoDefaults.password,
 })
 
 const discovering = ref(false)
@@ -189,64 +171,16 @@ const sessionState = computed(() => {
   return 'Not signed in'
 })
 
-function authClient() {
-  return new CognitoIdentityProviderClient({
-    endpoint: form.endpoint,
-    region: form.region,
-    credentials,
-  })
-}
-
-function configureAmplify() {
-  Amplify.configure({
-    Auth: {
-      Cognito: {
-        userPoolId: form.userPoolId,
-        userPoolClientId: form.userPoolClientId,
-        userPoolEndpoint: form.endpoint,
-        loginWith: {
-          email: true,
-        },
-      },
-    },
-  })
-}
-
 async function discoverCognito() {
   discovering.value = true
   error.value = ''
   statusMessage.value = ''
 
   try {
-    const client = authClient()
-    const pools = await client.send(new ListUserPoolsCommand({ MaxResults: 60 }))
-    const pool =
-      (pools.UserPools || []).find((candidate) => candidate.Name === defaultUserPoolName) ||
-      (pools.UserPools || [])[0]
-
-    if (!pool?.Id) {
-      throw new Error('No Cognito user pools were found in Floci.')
-    }
-
-    form.userPoolId = pool.Id
-
-    const clients = await client.send(
-      new ListUserPoolClientsCommand({
-        UserPoolId: pool.Id,
-        MaxResults: 60,
-      }),
-    )
-    const userPoolClient =
-      (clients.UserPoolClients || []).find(
-        (candidate) => candidate.ClientName === defaultClientName,
-      ) || (clients.UserPoolClients || [])[0]
-
-    if (!userPoolClient?.ClientId) {
-      throw new Error(`No Cognito user pool clients were found for ${pool.Id}.`)
-    }
-
-    form.userPoolClientId = userPoolClient.ClientId
-    statusMessage.value = `Detected ${pool.Name} / ${userPoolClient.ClientName}.`
+    const result = await discoverCognitoResources(form)
+    form.userPoolId = result.userPoolId
+    form.userPoolClientId = result.userPoolClientId
+    statusMessage.value = `Detected ${result.poolName} / ${result.clientName}.`
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to detect Cognito resources.')
   } finally {
@@ -264,23 +198,14 @@ async function login() {
       await discoverCognito()
     }
 
-    configureAmplify()
-    await signOut().catch(() => undefined)
+    const result = await signInToCognito(form)
 
-    const result = await signIn({
-      username: form.username,
-      password: form.password,
-      options: {
-        authFlowType: 'USER_PASSWORD_AUTH',
-      },
-    })
-
-    if (!result.isSignedIn) {
-      statusMessage.value = `Amplify next step: ${result.nextStep?.signInStep || 'unknown'}`
+    if (!result.signedIn) {
+      statusMessage.value = `Amplify next step: ${result.nextStep}`
       return
     }
 
-    await loadSession()
+    applyTokens(result.tokens)
     signedIn.value = true
     statusMessage.value = 'Amplify sign-in succeeded and JWTs were issued.'
   } catch (caught) {
@@ -291,10 +216,9 @@ async function login() {
   }
 }
 
-async function loadSession() {
-  const session = await fetchAuthSession()
-  tokens.idToken = session.tokens?.idToken?.toString() || ''
-  tokens.accessToken = session.tokens?.accessToken?.toString() || ''
+function applyTokens(sessionTokens) {
+  tokens.idToken = sessionTokens.idToken
+  tokens.accessToken = sessionTokens.accessToken
   decoded.idToken = decodeJwt(tokens.idToken)
   decoded.accessToken = decodeJwt(tokens.accessToken)
 }
@@ -304,8 +228,7 @@ async function logout() {
   statusMessage.value = ''
 
   try {
-    configureAmplify()
-    await signOut()
+    await signOutFromCognito(form)
   } catch (caught) {
     error.value = messageFromError(caught, 'Amplify sign-out failed.')
   } finally {

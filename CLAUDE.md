@@ -51,10 +51,16 @@ export VITE_AWS_SECRET_ACCESS_KEY=test
 ## Vue/Vuetify Guidelines
 
 - The GUI is a Vue 3 + Vite + Vuetify 3 app under `gui/`.
-- Avoid adding too many AWS SDK v3 clients directly inside components. If the GUI grows, extract shared clients to `src/services/aws.js`.
+- Vue components under `gui/src/components/` should implement UI state, event handlers, and presentation only.
+- Do not import `@aws-sdk/*`, `aws-amplify`, or `aws-amplify/auth` directly from `.vue` files.
+- Do not create AWS SDK clients or call `.send()` directly from `.vue` files.
+- Put browser AWS, Amplify, and Floci access in service modules under `gui/src/aws/`.
+- Keep shared endpoint, region, and dummy credential configuration in `gui/src/aws/config.ts`.
 - Read browser-facing endpoint and credential settings from `VITE_*` environment variables.
 - Use the Vite `/floci` proxy for browser calls to Floci when direct `localhost:4566` access would hit CORS or browser-network limits.
 - Treat the GUI as a management console: keep it dense, operational, and avoid unnecessary marketing-style UI.
+- Keep destructive GUI actions behind confirmation dialogs.
+- When adding, removing, or changing GUI behavior, update `docs/specifications/gui.md` in the same change.
 - Run `npm run build` after GUI changes.
 
 ## HOW-TO
