@@ -1,0 +1,35 @@
+[project]
+name = "rds-postgres-data-access"
+version = "0.1.0"
+description = "Verification tool for accessing the Floci-backed PostgreSQL RDS demo database."
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+authors = [{ name = "aws-local-sandbox contributors" }]
+dependencies = [
+  "boto3>=1.35.0,<2.0.0",
+  "psycopg[binary]>=3.2.0,<4.0.0",
+  "sqlalchemy>=2.0.0,<3.0.0",
+]
+
+[project.scripts]
+rds-postgres-verify = "rds_postgres_data_access.main:main"
+
+[tool.poetry]
+packages = [{ include = "rds_postgres_data_access", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+flake8 = "^7.1.0"
+isort = "^5.13.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"

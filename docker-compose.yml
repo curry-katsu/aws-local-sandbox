@@ -4,6 +4,7 @@ services:
     container_name: aws-local-sandbox-floci
     ports:
       - "4566:4566"
+      - "${FLOCI_RDS_POSTGRES_PORT:-7001}:7001"
     environment:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
@@ -11,6 +12,7 @@ services:
       FLOCI_STORAGE_MODE: ${FLOCI_STORAGE_MODE:-persistent}
       FLOCI_STORAGE_PERSISTENT_PATH: /app/data
       FLOCI_SERVICES_DOCKER_NETWORK: ${FLOCI_SERVICES_DOCKER_NETWORK:-aws-local-sandbox_default}
+      FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: ${FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE:-postgres:17.7-alpine}
     volumes:
       - ./data/floci:/app/data
       - /var/run/docker.sock:/var/run/docker.sock

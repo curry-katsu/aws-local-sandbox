@@ -36,6 +36,7 @@ provider "aws" {
     kinesis        = var.aws_endpoint_url
     lambda         = var.aws_endpoint_url
     logs           = var.aws_endpoint_url
+    rds            = var.aws_endpoint_url
     s3             = var.aws_endpoint_url
     sns            = var.aws_endpoint_url
     sqs            = var.aws_endpoint_url

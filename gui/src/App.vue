@@ -57,6 +57,7 @@
         <S3Console v-else-if="selectedView === 's3'" />
         <SqsConsole v-else-if="selectedView === 'sqs'" />
         <SnsConsole v-else-if="selectedView === 'sns'" />
+        <RdsConsole v-else-if="selectedView === 'rds'" />
         <CognitoLoginVerifier v-else-if="selectedView === 'cognito'" />
         <EventBridgeVerifier v-else-if="selectedView === 'eventbridge'" />
         <StepFunctionsVerifier v-else-if="selectedView === 'stepfunctions'" />
@@ -80,6 +81,7 @@ import CognitoLoginVerifier from './components/CognitoLoginVerifier.vue'
 import DynamoDbConsole from './components/DynamoDbConsole.vue'
 import EventBridgeVerifier from './components/EventBridgeVerifier.vue'
 import ResourceList from './components/ResourceList.vue'
+import RdsConsole from './components/RdsConsole.vue'
 import S3Console from './components/S3Console.vue'
 import SnsConsole from './components/SnsConsole.vue'
 import SqsConsole from './components/SqsConsole.vue'
@@ -94,6 +96,7 @@ const navigationItems = [
   { value: 'dynamodb', title: 'DynamoDB', icon: 'mdi-database-outline' },
   { value: 'sqs', title: 'SQS', icon: 'mdi-message-outline' },
   { value: 'sns', title: 'SNS', icon: 'mdi-bullhorn-outline' },
+  { value: 'rds', title: 'RDS', icon: 'mdi-database-cog-outline' },
   { value: 'cognito', title: 'Cognito', icon: 'mdi-account-key-outline' },
   { value: 'eventbridge', title: 'EventBridge', icon: 'mdi-calendar-clock-outline' },
   { value: 'stepfunctions', title: 'Step Functions', icon: 'mdi-transit-connection-variant' },
