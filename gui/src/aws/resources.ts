@@ -4,6 +4,7 @@ import { ListStateMachinesCommand } from '@aws-sdk/client-sfn'
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider'
 import { DynamoDBClient, ListTablesCommand } from '@aws-sdk/client-dynamodb'
 import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
+import { RDSClient, DescribeDBClustersCommand } from '@aws-sdk/client-rds'
 import { S3Client, ListBucketsCommand } from '@aws-sdk/client-s3'
 import { SFNClient } from '@aws-sdk/client-sfn'
 import { SNSClient, ListTopicsCommand } from '@aws-sdk/client-sns'
@@ -17,6 +18,7 @@ const sns = new SNSClient(clientConfig)
 const cognito = new CognitoIdentityProviderClient(clientConfig)
 const eventbridge = new EventBridgeClient(clientConfig)
 const sfn = new SFNClient(clientConfig)
+const rds = new RDSClient(clientConfig)
 
 export async function discoverResources() {
   const [
@@ -27,6 +29,7 @@ export async function discoverResources() {
     userPoolOutcome,
     ruleOutcome,
     stateMachineOutcome,
+    dbClusterOutcome,
   ] = await Promise.allSettled([
     s3.send(new ListBucketsCommand({})),
     dynamodb.send(new ListTablesCommand({})),
@@ -35,6 +38,7 @@ export async function discoverResources() {
     cognito.send(new ListUserPoolsCommand({ MaxResults: 60 })),
     eventbridge.send(new ListRulesCommand({ Limit: 100 })),
     sfn.send(new ListStateMachinesCommand({ maxResults: 100 })),
+    rds.send(new DescribeDBClustersCommand({})),
   ])
 
   const failedServices = []
@@ -53,6 +57,7 @@ export async function discoverResources() {
   const stateMachineResult = resultOrDefault('Step Functions', stateMachineOutcome, {
     stateMachines: [],
   })
+  const dbClusterResult = resultOrDefault('RDS', dbClusterOutcome, { DBClusters: [] })
 
   const userPools = await Promise.all(
     (userPoolResult.UserPools || []).map(async (userPool) => {
@@ -117,8 +122,12 @@ export async function discoverResources() {
         name: stateMachine.name,
         id: stateMachine.stateMachineArn,
       })),
+      ...(dbClusterResult.DBClusters || []).map((cluster) => ({
+        service: 'RDS Cluster',
+        name: cluster.DBClusterIdentifier,
+        id: `${cluster.Engine || 'unknown'}:${cluster.EngineVersion || 'unknown'}`,
+      })),
     ],
     failedServices,
   }
 }
-

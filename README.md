@@ -5,7 +5,7 @@
 ## Architecture
 
 - Floci: LocalStack-compatible AWS emulator.
-- Terraform: Local provisioning for S3, DynamoDB, SQS, SNS, and Cognito.
+- Terraform: Local provisioning for S3, DynamoDB, SQS, SNS, RDS, and Cognito.
 - Vue 3 + Vite + Vuetify 3: GUI for inspecting local resources and testing Cognito login.
 - Makefile: Shared entry point for service lifecycle, IaC, GUI, and verification tasks.
 
@@ -28,6 +28,15 @@ The GUI includes an Amplify login verification panel for the Cognito User Pool. 
 ```sh
 make verify-cognito-install
 make verify-cognito-login-jwt
+```
+
+The demo RDS cluster is a Floci-backed PostgreSQL 17.7 database exposed through RDS-compatible APIs. Floci reports the engine as `postgres`, while the sandbox treats it as the local Aurora PostgreSQL demo target.
+
+The RDS PostgreSQL data-access verification tool applies a sample DDL, inserts one row, and reads recent rows back from the demo database.
+
+```sh
+make verify-rds-install
+make verify-rds-run
 ```
 
 To run the GUI locally outside Docker Compose:

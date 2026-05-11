@@ -34,6 +34,7 @@ The left navigation switches between service consoles:
 - DynamoDB
 - SQS
 - SNS
+- RDS
 - Cognito
 - EventBridge
 - Step Functions
@@ -56,6 +57,7 @@ Discovered resources:
 - DynamoDB tables
 - SQS queues
 - SNS topics
+- RDS clusters
 - Cognito user pools and clients
 - EventBridge rules
 - Step Functions state machines
@@ -119,6 +121,16 @@ The SNS console supports:
 
 Topic creation is not inline in the list. Use `New topic` to switch the main panel to the creation screen. If the topic name already exists, the create action is disabled and `Open existing` can select the existing topic.
 
+## RDS Console
+
+The RDS console supports:
+
+- RDS cluster listing
+- Cluster status, engine, and engine version display
+- Writer endpoint, reader endpoint, port, database name, master user, and Multi-AZ metadata display
+
+The Floci demo Aurora PostgreSQL resource is backed by a local PostgreSQL container. The GUI inspects RDS metadata through AWS SDK v3 only; it does not open SQL connections from the browser.
+
 ## Cognito Console
 
 The Cognito console supports:
@@ -169,4 +181,3 @@ The default state machine is `aws-local-sandbox-stepfunctions-two-lambdas` unles
 ## Documentation Rule
 
 When adding or changing GUI capabilities, update this specification in the same change. The documentation should describe the user-facing behavior, destructive actions, and any implementation boundary changes.
-

@@ -18,8 +18,14 @@ COGNITO_USERNAME ?= sandbox-user@example.com
 COGNITO_PASSWORD ?= Sandbox123
 EVENTBRIDGE_INVOKE_OUTPUT ?= /tmp/aws-local-sandbox-eventbridge-daily-noon-response.json
 STEPFUNCTIONS_INPUT ?= {"source":"make","message":"hello from Step Functions"}
+RDS_CLUSTER_IDENTIFIER ?= aws-local-sandbox-aurora-postgres-demo
+RDS_DB_NAME ?= sandbox
+RDS_DB_USER ?= sandbox
+RDS_DB_PASSWORD ?= Sandbox123
+RDS_DB_HOST ?= localhost
+RDS_DB_PORT ?= 7001
 
-.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-sns-topics verify-sns-subscriptions verify-sns-publish verify-sns-receive-primary verify-sns-receive-secondary verify-sns-fanout verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint verify-eventbridge-rule verify-eventbridge-targets verify-eventbridge-invoke-lambda verify-stepfunctions-state-machine verify-stepfunctions-start-execution verify-stepfunctions-execution-history fmt clean
+.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-sns-topics verify-sns-subscriptions verify-sns-publish verify-sns-receive-primary verify-sns-receive-secondary verify-sns-fanout verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint verify-rds-install verify-rds-run verify-rds-format verify-rds-lint verify-eventbridge-rule verify-eventbridge-targets verify-eventbridge-invoke-lambda verify-stepfunctions-state-machine verify-stepfunctions-start-execution verify-stepfunctions-execution-history fmt clean
 
 help:
 	@printf '%s\n' \
@@ -50,6 +56,10 @@ help:
 		'  make verify-cognito-login-jwt Create/login a Cognito user and print JWTs' \
 		'  make verify-cognito-format Format Cognito verification Python code' \
 		'  make verify-cognito-lint Lint Cognito verification Python code' \
+		'  make verify-rds-install Install RDS PostgreSQL verification dependencies' \
+		'  make verify-rds-run Apply sample DDL and read/write demo PostgreSQL data' \
+		'  make verify-rds-format Format RDS PostgreSQL verification Python code' \
+		'  make verify-rds-lint Lint RDS PostgreSQL verification Python code' \
 		'  make verify-eventbridge-rule Describe the daily noon JST EventBridge rule' \
 		'  make verify-eventbridge-targets List targets for the daily noon JST EventBridge rule' \
 		'  make verify-eventbridge-invoke-lambda Invoke the scheduled Lambda manually' \
@@ -195,6 +205,29 @@ verify-cognito-lint:
 	cd verification/cognito_user_create && poetry run isort --check-only .
 	cd verification/cognito_user_create && poetry run black --check .
 	cd verification/cognito_user_create && poetry run flake8 .
+
+verify-rds-install:
+	cd verification/rds_postgres_data_access && poetry install
+
+verify-rds-run:
+	cd verification/rds_postgres_data_access && \
+	$(AWS_LOCAL_ENV) \
+	RDS_CLUSTER_IDENTIFIER="$(RDS_CLUSTER_IDENTIFIER)" \
+	RDS_DB_NAME="$(RDS_DB_NAME)" \
+	RDS_DB_USER="$(RDS_DB_USER)" \
+	RDS_DB_PASSWORD="$(RDS_DB_PASSWORD)" \
+	RDS_DB_HOST="$(RDS_DB_HOST)" \
+	RDS_DB_PORT="$(RDS_DB_PORT)" \
+	poetry run rds-postgres-verify
+
+verify-rds-format:
+	cd verification/rds_postgres_data_access && poetry run isort .
+	cd verification/rds_postgres_data_access && poetry run black .
+
+verify-rds-lint:
+	cd verification/rds_postgres_data_access && poetry run isort --check-only .
+	cd verification/rds_postgres_data_access && poetry run black --check .
+	cd verification/rds_postgres_data_access && poetry run flake8 .
 
 verify-eventbridge-rule:
 	@set -eu; \

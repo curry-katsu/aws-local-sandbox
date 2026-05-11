@@ -58,3 +58,27 @@ output "stepfunctions_first_lambda_name" {
 output "stepfunctions_second_lambda_name" {
   value = aws_lambda_function.stepfunctions_second.function_name
 }
+
+output "aurora_postgres_demo_cluster_identifier" {
+  value = aws_rds_cluster.aurora_postgres_demo.cluster_identifier
+}
+
+output "aurora_postgres_demo_engine" {
+  value = aws_rds_cluster.aurora_postgres_demo.engine
+}
+
+output "aurora_postgres_demo_engine_version" {
+  value = aws_rds_cluster.aurora_postgres_demo.engine_version_actual
+}
+
+output "aurora_postgres_demo_writer_endpoint" {
+  value = aws_rds_cluster.aurora_postgres_demo.endpoint
+}
+
+output "aurora_postgres_demo_reader_endpoint" {
+  value = aws_rds_cluster.aurora_postgres_demo.reader_endpoint
+}
+
+output "aurora_postgres_demo_port" {
+  value = aws_rds_cluster.aurora_postgres_demo.port
+}
