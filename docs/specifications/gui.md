@@ -79,9 +79,12 @@ Object writes are intended for local text and JSON verification data.
 The DynamoDB console supports:
 
 - Table listing
+- Table creation with partition key, optional sort key, key attribute types, and provisioned capacity inputs
 - Table metadata summary
 - Key schema and attribute definition display
 - Item scan with configurable limit
+- Key-based item query using the selected table schema
+- Attribute filter scan with equals or contains matching
 - JSON item creation through `PutItem`
 - Selected item deletion with confirmation
 - Selected item JSON inspection
@@ -99,7 +102,7 @@ The SQS console supports:
 - Queue creation through a dedicated create screen
 - Existing queue duplicate-name guard
 - Selected queue deletion with confirmation
-- Message send
+- Message send with arbitrary body, optional delay seconds, and JSON message attributes
 - Message receive
 - Selected received-message deletion
 - Major queue attribute display and update
@@ -114,7 +117,7 @@ The SNS console supports:
 - Topic creation through a dedicated create screen
 - Existing topic duplicate-name guard
 - Selected topic deletion with confirmation
-- Message publish
+- Message publish with arbitrary body, optional subject, and JSON message attributes
 - Subscription listing
 - DisplayName attribute update
 - Raw topic attribute inspection
@@ -169,6 +172,8 @@ The default state machine is `aws-local-sandbox-stepfunctions-two-lambdas` unles
 
 ## Implementation Rules
 
+- Service screens that grow beyond simple presentation should use `gui/src/views/` as the orchestration layer and keep reusable UI under `gui/src/components/`.
+- The DynamoDB console uses `gui/src/views/DynamoDbView.vue` for state management and AWS service calls, with presentation split under `gui/src/components/dynamodb/`.
 - Vue components under `gui/src/components/` must contain UI state, event handlers, and presentation logic only.
 - Do not import `@aws-sdk/*`, `aws-amplify`, or `aws-amplify/auth` directly from `.vue` files.
 - Do not create AWS SDK clients or call `.send()` from `.vue` files.

@@ -28,12 +28,13 @@ export async function getTopicDetail(topicArn) {
   }
 }
 
-export async function publishTopicMessage(topicArn, subject, message) {
+export async function publishTopicMessage(topicArn, subject, message, messageAttributes = undefined) {
   await sns.send(
     new PublishCommand({
       TopicArn: topicArn,
       Subject: subject || undefined,
       Message: message || '{}',
+      MessageAttributes: messageAttributes,
     }),
   )
 }
@@ -56,4 +57,3 @@ export async function createTopic(name) {
 export async function deleteTopic(topicArn) {
   await sns.send(new DeleteTopicCommand({ TopicArn: topicArn }))
 }
-

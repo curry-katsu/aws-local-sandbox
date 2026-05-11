@@ -53,7 +53,7 @@
           <ResourceList />
         </template>
 
-        <DynamoDbConsole v-else-if="selectedView === 'dynamodb'" />
+        <DynamoDbView v-else-if="selectedView === 'dynamodb'" />
         <S3Console v-else-if="selectedView === 's3'" />
         <SqsConsole v-else-if="selectedView === 'sqs'" />
         <SnsConsole v-else-if="selectedView === 'sns'" />
@@ -78,7 +78,6 @@
 <script setup>
 import { computed, ref } from 'vue'
 import CognitoLoginVerifier from './components/CognitoLoginVerifier.vue'
-import DynamoDbConsole from './components/DynamoDbConsole.vue'
 import EventBridgeVerifier from './components/EventBridgeVerifier.vue'
 import ResourceList from './components/ResourceList.vue'
 import RdsConsole from './components/RdsConsole.vue'
@@ -86,6 +85,7 @@ import S3Console from './components/S3Console.vue'
 import SnsConsole from './components/SnsConsole.vue'
 import SqsConsole from './components/SqsConsole.vue'
 import StepFunctionsVerifier from './components/StepFunctionsVerifier.vue'
+import DynamoDbView from './views/DynamoDbView.vue'
 
 const endpointUrl = import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
 const region = import.meta.env.VITE_AWS_REGION || 'us-east-1'
