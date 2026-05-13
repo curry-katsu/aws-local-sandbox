@@ -39,7 +39,19 @@ The left navigation switches between service consoles:
 - EventBridge
 - Step Functions
 
-The selected service name is shown in the app bar with the active endpoint.
+Navigation is backed by Vue Router. Each service has a direct path:
+
+- `/`
+- `/s3`
+- `/dynamodb`
+- `/sqs`
+- `/sns`
+- `/rds`
+- `/cognito`
+- `/eventbridge`
+- `/stepfunctions`
+
+The selected service name is shown in the app bar with the active endpoint. Unknown paths render a not-found view.
 
 ## Dashboard
 
@@ -174,6 +186,9 @@ The default state machine is `aws-local-sandbox-stepfunctions-two-lambdas` unles
 
 - Service screens that grow beyond simple presentation should use `gui/src/views/` as the orchestration layer and keep reusable UI under `gui/src/components/`.
 - The DynamoDB console uses `gui/src/views/DynamoDbView.vue` for state management and AWS service calls, with presentation split under `gui/src/components/dynamodb/`.
+- `App.vue` owns only the application shell, navigation, and `<router-view>`. It must not import individual service components or views.
+- Route definitions live in `gui/src/router/` and should lazy-load service views.
+- Parent-child direction should be View -> Component. Components must not import views.
 - Vue components under `gui/src/components/` must contain UI state, event handlers, and presentation logic only.
 - Do not import `@aws-sdk/*`, `aws-amplify`, or `aws-amplify/auth` directly from `.vue` files.
 - Do not create AWS SDK clients or call `.send()` from `.vue` files.
