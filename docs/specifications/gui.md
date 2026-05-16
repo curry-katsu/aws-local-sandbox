@@ -34,6 +34,7 @@ The left navigation switches between service consoles:
 - DynamoDB
 - SQS
 - SNS
+- Lambda
 - RDS
 - Cognito
 - EventBridge
@@ -46,6 +47,7 @@ Navigation is backed by Vue Router. Each service has a direct path:
 - `/dynamodb`
 - `/sqs`
 - `/sns`
+- `/lambda`
 - `/rds`
 - `/cognito`
 - `/eventbridge`
@@ -69,10 +71,17 @@ Discovered resources:
 - DynamoDB tables
 - SQS queues
 - SNS topics
+- Lambda functions
 - RDS clusters
 - Cognito user pools and clients
 - EventBridge rules
 - Step Functions state machines
+
+## Service Specifications
+
+Detailed service-specific GUI specifications should live under `docs/specifications/gui/` to keep this overview focused on shared behavior.
+
+- [DynamoDB Console](gui/dynamodb.md)
 
 ## S3 Console
 
@@ -88,23 +97,7 @@ Object writes are intended for local text and JSON verification data.
 
 ## DynamoDB Console
 
-The DynamoDB console supports:
-
-- Table listing
-- Table creation with partition key, optional sort key, key attribute types, and provisioned capacity inputs
-- Table metadata summary
-- Key schema and attribute definition display
-- Item scan with configurable limit
-- Key-based item query using the selected table schema
-- Attribute filter scan with equals or contains matching
-- JSON item creation through `PutItem`
-- Selected item deletion with confirmation
-- Selected item JSON inspection
-
-The item table keeps rows compact:
-
-- Long values are shown as single-line ellipsized cells.
-- Full item JSON is shown in the `Selected item JSON` panel after selecting a row.
+See [DynamoDB Console](gui/dynamodb.md) for the detailed DynamoDB GUI specification.
 
 ## SQS Console
 
@@ -135,6 +128,18 @@ The SNS console supports:
 - Raw topic attribute inspection
 
 Topic creation is not inline in the list. Use `New topic` to switch the main panel to the creation screen. If the topic name already exists, the create action is disabled and `Open existing` can select the existing topic.
+
+## Lambda Console
+
+The Lambda console supports:
+
+- Lambda function listing
+- Selected function configuration inspection
+- Code metadata inspection
+- Request-response invocation with editable JSON payload
+- Invocation status, function error, executed version, and payload inspection
+
+Lambda invocation uses the local Floci endpoint and dummy credentials only. Function code is not edited from the GUI.
 
 ## RDS Console
 
@@ -185,7 +190,6 @@ The default state machine is `aws-local-sandbox-stepfunctions-two-lambdas` unles
 ## Implementation Rules
 
 - Service screens that grow beyond simple presentation should use `gui/src/views/` as the orchestration layer and keep reusable UI under `gui/src/components/`.
-- The DynamoDB console uses `gui/src/views/DynamoDbView.vue` for state management and AWS service calls, with presentation split under `gui/src/components/dynamodb/`.
 - `App.vue` owns only the application shell, navigation, and `<router-view>`. It must not import individual service components or views.
 - Route definitions live in `gui/src/router/` and should lazy-load service views.
 - Parent-child direction should be View -> Component. Components must not import views.
@@ -200,4 +204,4 @@ The default state machine is `aws-local-sandbox-stepfunctions-two-lambdas` unles
 
 ## Documentation Rule
 
-When adding or changing GUI capabilities, update this specification in the same change. The documentation should describe the user-facing behavior, destructive actions, and any implementation boundary changes.
+When adding or changing GUI capabilities, update this overview or the relevant service-specific specification in the same change. The documentation should describe the user-facing behavior, destructive actions, and any implementation boundary changes.

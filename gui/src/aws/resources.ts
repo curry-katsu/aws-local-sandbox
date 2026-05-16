@@ -4,6 +4,7 @@ import { ListStateMachinesCommand } from '@aws-sdk/client-sfn'
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider'
 import { DynamoDBClient, ListTablesCommand } from '@aws-sdk/client-dynamodb'
 import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
+import { LambdaClient, ListFunctionsCommand } from '@aws-sdk/client-lambda'
 import { RDSClient, DescribeDBClustersCommand } from '@aws-sdk/client-rds'
 import { S3Client, ListBucketsCommand } from '@aws-sdk/client-s3'
 import { SFNClient } from '@aws-sdk/client-sfn'
@@ -17,6 +18,7 @@ const sqs = new SQSClient(clientConfig)
 const sns = new SNSClient(clientConfig)
 const cognito = new CognitoIdentityProviderClient(clientConfig)
 const eventbridge = new EventBridgeClient(clientConfig)
+const lambda = new LambdaClient(clientConfig)
 const sfn = new SFNClient(clientConfig)
 const rds = new RDSClient(clientConfig)
 
@@ -28,6 +30,7 @@ export async function discoverResources() {
     topicOutcome,
     userPoolOutcome,
     ruleOutcome,
+    lambdaOutcome,
     stateMachineOutcome,
     dbClusterOutcome,
   ] = await Promise.allSettled([
@@ -37,6 +40,7 @@ export async function discoverResources() {
     sns.send(new ListTopicsCommand({})),
     cognito.send(new ListUserPoolsCommand({ MaxResults: 60 })),
     eventbridge.send(new ListRulesCommand({ Limit: 100 })),
+    lambda.send(new ListFunctionsCommand({ MaxItems: 50 })),
     sfn.send(new ListStateMachinesCommand({ maxResults: 100 })),
     rds.send(new DescribeDBClustersCommand({})),
   ])
@@ -54,6 +58,7 @@ export async function discoverResources() {
   const topicResult = resultOrDefault('SNS', topicOutcome, { Topics: [] })
   const userPoolResult = resultOrDefault('Cognito', userPoolOutcome, { UserPools: [] })
   const ruleResult = resultOrDefault('EventBridge', ruleOutcome, { Rules: [] })
+  const lambdaResult = resultOrDefault('Lambda', lambdaOutcome, { Functions: [] })
   const stateMachineResult = resultOrDefault('Step Functions', stateMachineOutcome, {
     stateMachines: [],
   })
@@ -116,6 +121,11 @@ export async function discoverResources() {
         service: 'EventBridge Rule',
         name: rule.Name,
         id: rule.Arn,
+      })),
+      ...(lambdaResult.Functions || []).map((fn) => ({
+        service: 'Lambda',
+        name: fn.FunctionName,
+        id: fn.FunctionArn,
       })),
       ...(stateMachineResult.stateMachines || []).map((stateMachine) => ({
         service: 'Step Functions',

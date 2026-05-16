@@ -76,12 +76,18 @@
         <v-window-item value="items">
           <DynamoDbItemsTab
             :display-items="displayItems"
+            :exporting-csv="exportingCsv"
+            :importing-csv="importingCsv"
             :item-columns="itemColumns"
             :loading-items="loadingItems"
+            :result-context="resultContext"
             :scan-limit="scanLimit"
             :selected-item="selectedItem"
             :selected-item-index="selectedItemIndex"
             @delete-selected="$emit('request-delete')"
+            @edit-selected="$emit('edit-selected-item')"
+            @export-csv="$emit('export-csv')"
+            @import-csv="$emit('import-csv', $event)"
             @update:scan-limit="$emit('update:scanLimit', $event)"
             @update:selected-item-index="$emit('update:selectedItemIndex', $event)"
           />
@@ -115,6 +121,7 @@
 
         <v-window-item value="editor">
           <DynamoDbItemEditorTab
+            :editor-context="editorContext"
             :item-json="itemJson"
             :saving="savingItem"
             @put="$emit('put-item')"
@@ -138,9 +145,12 @@ defineProps({
   attributeDefinitions: { type: Array, default: () => [] },
   attributeTypeOptions: { type: Array, required: true },
   displayItems: { type: Array, default: () => [] },
+  editorContext: { type: Object, default: null },
+  exportingCsv: { type: Boolean, default: false },
   filterForm: { type: Object, required: true },
   filterOperatorOptions: { type: Array, required: true },
   hasSortKey: { type: Boolean, default: false },
+  importingCsv: { type: Boolean, default: false },
   itemColumns: { type: Array, default: () => [] },
   itemJson: { type: String, default: '' },
   keySchema: { type: Array, default: () => [] },
@@ -148,6 +158,7 @@ defineProps({
   loadingItems: { type: Boolean, default: false },
   partitionKeyLabel: { type: String, default: 'Partition key' },
   queryForm: { type: Object, required: true },
+  resultContext: { type: Object, default: null },
   savingItem: { type: Boolean, default: false },
   scanLimit: { type: Number, default: 50 },
   searchLimit: { type: Number, default: 50 },
@@ -161,6 +172,9 @@ defineProps({
 
 defineEmits([
   'filter-scan',
+  'edit-selected-item',
+  'export-csv',
+  'import-csv',
   'prepare-new-item',
   'put-item',
   'query',

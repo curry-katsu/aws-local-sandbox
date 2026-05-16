@@ -1,4 +1,21 @@
 <template>
+  <div v-if="resultContext" class="result-context">
+    <div>
+      <div class="text-caption text-medium-emphasis">Current results</div>
+      <div class="text-body-2 font-weight-medium">{{ resultContext.title }}</div>
+    </div>
+    <div class="context-details">
+      <v-chip
+        v-for="detail in resultContext.details"
+        :key="`${detail.label}:${detail.value}`"
+        size="small"
+        variant="tonal"
+      >
+        {{ detail.label }}: {{ formatContextValue(detail.value) }}
+      </v-chip>
+    </div>
+  </div>
+
   <div class="items-toolbar">
     <v-text-field
       :model-value="scanLimit"
@@ -11,6 +28,37 @@
       hide-details
       @update:model-value="$emit('update:scanLimit', Number($event))"
     />
+    <v-btn
+      variant="tonal"
+      prepend-icon="mdi-download-outline"
+      :loading="exportingCsv"
+      @click="$emit('export-csv')"
+    >
+      Export all CSV
+    </v-btn>
+    <v-btn
+      variant="tonal"
+      prepend-icon="mdi-upload-outline"
+      :loading="importingCsv"
+      @click="openCsvPicker"
+    >
+      Import CSV
+    </v-btn>
+    <input
+      ref="csvInput"
+      accept=".csv,text/csv"
+      class="csv-input"
+      type="file"
+      @change="importCsv"
+    />
+    <v-btn
+      variant="tonal"
+      prepend-icon="mdi-file-edit-outline"
+      :disabled="selectedItemIndex === null"
+      @click="$emit('edit-selected')"
+    >
+      Edit selected
+    </v-btn>
     <v-btn
       variant="tonal"
       prepend-icon="mdi-delete-outline"
@@ -75,16 +123,42 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 defineProps({
   displayItems: { type: Array, default: () => [] },
+  exportingCsv: { type: Boolean, default: false },
+  importingCsv: { type: Boolean, default: false },
   itemColumns: { type: Array, default: () => [] },
   loadingItems: { type: Boolean, default: false },
+  resultContext: { type: Object, default: null },
   scanLimit: { type: Number, default: 50 },
   selectedItem: { type: Object, default: null },
   selectedItemIndex: { type: Number, default: null },
 })
 
-defineEmits(['delete-selected', 'update:scanLimit', 'update:selectedItemIndex'])
+const emit = defineEmits([
+  'delete-selected',
+  'edit-selected',
+  'export-csv',
+  'import-csv',
+  'update:scanLimit',
+  'update:selectedItemIndex',
+])
+
+const csvInput = ref(null)
+
+function openCsvPicker() {
+  csvInput.value?.click()
+}
+
+function importCsv(event) {
+  const file = event.target.files?.[0]
+  if (file) {
+    emit('import-csv', file)
+  }
+  event.target.value = ''
+}
 
 function formatCellValue(value) {
   if (value === undefined) return ''
@@ -96,9 +170,30 @@ function formatCellValue(value) {
 function formatJson(value) {
   return JSON.stringify(value || {}, null, 2)
 }
+
+function formatContextValue(value) {
+  if (value === undefined || value === null || value === '') return '(empty)'
+  return String(value)
+}
 </script>
 
 <style scoped>
+.result-context {
+  align-items: start;
+  background: rgba(var(--v-theme-primary), 0.06);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(160px, max-content) minmax(0, 1fr);
+  padding: 16px 16px 0;
+}
+
+.context-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
 .items-toolbar {
   align-items: center;
   display: flex;
@@ -110,6 +205,10 @@ function formatJson(value) {
 
 .items-toolbar :deep(.v-input) {
   flex: 0 0 160px;
+}
+
+.csv-input {
+  display: none;
 }
 
 .item-table-wrap {
@@ -163,6 +262,10 @@ pre {
   .items-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .result-context {
+    grid-template-columns: 1fr;
   }
 }
 </style>

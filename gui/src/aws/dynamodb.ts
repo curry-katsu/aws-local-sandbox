@@ -70,6 +70,24 @@ export async function scanTable(tableName, limit, filter = null) {
   return result.Items || []
 }
 
+export async function scanAllTableItems(tableName) {
+  const items = []
+  let exclusiveStartKey = undefined
+
+  do {
+    const result = await dynamodb.send(
+      new ScanCommand({
+        TableName: tableName,
+        ExclusiveStartKey: exclusiveStartKey,
+      }),
+    )
+    items.push(...(result.Items || []))
+    exclusiveStartKey = result.LastEvaluatedKey
+  } while (exclusiveStartKey)
+
+  return items
+}
+
 export async function queryTable(tableName, keySchema, attributeDefinitions, keyValues, limit) {
   const partitionKey = keySchema.find((key) => key.KeyType === 'HASH')
   const sortKey = keySchema.find((key) => key.KeyType === 'RANGE')

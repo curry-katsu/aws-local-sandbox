@@ -1,5 +1,26 @@
 <template>
   <div class="editor-panel">
+    <div v-if="editorContext" class="editor-context">
+      <div>
+        <div class="text-caption text-medium-emphasis">Editor target</div>
+        <div class="text-body-2 font-weight-medium">{{ editorContext.title }}</div>
+        <div class="text-body-2 text-medium-emphasis">{{ editorContext.description }}</div>
+      </div>
+      <div v-if="editorContext.keyPreview" class="key-preview">
+        <v-chip
+          v-for="(value, key) in editorContext.keyPreview"
+          :key="key"
+          size="small"
+          variant="tonal"
+        >
+          {{ key }}: {{ formatValue(value) }}
+        </v-chip>
+      </div>
+      <v-alert v-else type="info" variant="tonal" density="compact">
+        Key values are not available from the current JSON.
+      </v-alert>
+    </div>
+
     <v-textarea
       :model-value="itemJson"
       label="Item JSON"
@@ -27,11 +48,18 @@
 
 <script setup>
 defineProps({
+  editorContext: { type: Object, default: null },
   itemJson: { type: String, default: '' },
   saving: { type: Boolean, default: false },
 })
 
 defineEmits(['put', 'reset', 'update:itemJson'])
+
+function formatValue(value) {
+  if (value === undefined || value === null || value === '') return '(empty)'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
 </script>
 
 <style scoped>
@@ -39,6 +67,20 @@ defineEmits(['put', 'reset', 'update:itemJson'])
   display: grid;
   gap: 12px;
   padding: 16px;
+}
+
+.editor-context {
+  background: rgba(var(--v-theme-primary), 0.06);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.key-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .editor-actions {
