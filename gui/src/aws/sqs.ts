@@ -50,11 +50,13 @@ export async function receiveQueueMessages(queueUrl, maxMessages) {
   return result.Messages || []
 }
 
-export async function sendQueueMessage(queueUrl, body) {
+export async function sendQueueMessage(queueUrl, body, options = {}) {
   await sqs.send(
     new SendMessageCommand({
       QueueUrl: queueUrl,
       MessageBody: body || '{}',
+      DelaySeconds: options.delaySeconds || undefined,
+      MessageAttributes: options.messageAttributes,
     }),
   )
 }

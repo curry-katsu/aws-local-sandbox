@@ -143,6 +143,7 @@
             <div class="editor-panel">
               <v-text-field v-model="subject" label="Subject" density="comfortable" variant="outlined" hide-details="auto" />
               <v-textarea v-model="message" label="Message" density="comfortable" variant="outlined" rows="10" hide-details="auto" />
+              <v-textarea v-model="messageAttributesJson" label="Message attributes JSON" density="comfortable" variant="outlined" rows="5" hide-details="auto" />
               <div class="editor-actions">
                 <v-btn variant="tonal" prepend-icon="mdi-file-code-outline" @click="resetMessage">Reset sample</v-btn>
                 <v-btn color="primary" prepend-icon="mdi-send-outline" :loading="publishing" @click="publishMessage">Publish message</v-btn>
@@ -226,6 +227,7 @@ const activeTab = ref('publish')
 const isCreatingTopic = ref(false)
 const subject = ref('Message from GUI')
 const message = ref('')
+const messageAttributesJson = ref('')
 const displayName = ref('')
 const newTopicName = ref('aws-local-sandbox-gui-topic')
 const loadingTopics = ref(false)
@@ -314,7 +316,12 @@ async function publishMessage() {
   statusMessage.value = ''
 
   try {
-    await publishTopicMessage(selectedTopicArn.value, subject.value, message.value)
+    await publishTopicMessage(
+      selectedTopicArn.value,
+      subject.value,
+      message.value,
+      parseMessageAttributes(messageAttributesJson.value),
+    )
     statusMessage.value = `Published message to ${selectedTopicName.value}.`
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to publish SNS message.')
@@ -394,6 +401,27 @@ function resetSelection() {
 function resetMessage() {
   subject.value = 'Message from GUI'
   message.value = JSON.stringify({ source: 'gui', message: 'hello from SNS console' }, null, 2)
+  messageAttributesJson.value = JSON.stringify({ eventType: 'local.debug', source: 'gui' }, null, 2)
+}
+
+function parseMessageAttributes(json) {
+  if (!json.trim()) return undefined
+  const parsed = JSON.parse(json)
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error('Message attributes JSON must be an object.')
+  }
+
+  return Object.fromEntries(
+    Object.entries(parsed).map(([name, value]) => {
+      if (value && typeof value === 'object' && !Array.isArray(value) && value.DataType) {
+        return [name, value]
+      }
+      if (typeof value === 'number') {
+        return [name, { DataType: 'Number', StringValue: String(value) }]
+      }
+      return [name, { DataType: 'String', StringValue: String(value) }]
+    }),
+  )
 }
 
 function topicName(topicArn) {

@@ -174,6 +174,10 @@
           <v-window-item value="send">
             <div class="editor-panel">
               <v-textarea v-model="messageBody" label="Message body" density="comfortable" variant="outlined" rows="10" hide-details="auto" />
+              <div class="send-options">
+                <v-text-field v-model.number="delaySeconds" label="Delay seconds" type="number" min="0" max="900" density="comfortable" variant="outlined" hide-details="auto" />
+                <v-textarea v-model="messageAttributesJson" label="Message attributes JSON" density="comfortable" variant="outlined" rows="5" hide-details="auto" />
+              </div>
               <div class="editor-actions">
                 <v-btn variant="tonal" prepend-icon="mdi-file-code-outline" @click="resetMessage">Reset sample</v-btn>
                 <v-btn color="primary" prepend-icon="mdi-send-outline" :loading="sending" @click="sendMessage">Send message</v-btn>
@@ -257,6 +261,8 @@ const isCreatingQueue = ref(false)
 const receiveCount = ref(5)
 const selectedMessageIndex = ref(null)
 const messageBody = ref('')
+const messageAttributesJson = ref('')
+const delaySeconds = ref(0)
 const newQueueName = ref('aws-local-sandbox-gui-queue')
 const loadingQueues = ref(false)
 const loadingAttributes = ref(false)
@@ -376,7 +382,10 @@ async function sendMessage() {
   statusMessage.value = ''
 
   try {
-    await sendQueueMessage(selectedQueueUrl.value, messageBody.value)
+    await sendQueueMessage(selectedQueueUrl.value, messageBody.value, {
+      delaySeconds: normalizedDelaySeconds(),
+      messageAttributes: parseMessageAttributes(messageAttributesJson.value),
+    })
     statusMessage.value = `Sent message to ${selectedQueueName.value}.`
     activeTab.value = 'messages'
     await loadAttributes()
@@ -475,12 +484,40 @@ function resetSelection() {
 
 function resetMessage() {
   messageBody.value = JSON.stringify({ source: 'gui', message: 'hello from SQS console' }, null, 2)
+  messageAttributesJson.value = JSON.stringify({ eventType: 'local.debug', source: 'gui' }, null, 2)
+  delaySeconds.value = 0
 }
 
 function normalizedReceiveCount() {
   const parsed = Number(receiveCount.value)
   if (!Number.isFinite(parsed)) return 5
   return Math.min(Math.max(Math.trunc(parsed), 1), 10)
+}
+
+function normalizedDelaySeconds() {
+  const parsed = Number(delaySeconds.value)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.min(Math.max(Math.trunc(parsed), 0), 900)
+}
+
+function parseMessageAttributes(json) {
+  if (!json.trim()) return undefined
+  const parsed = JSON.parse(json)
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error('Message attributes JSON must be an object.')
+  }
+
+  return Object.fromEntries(
+    Object.entries(parsed).map(([name, value]) => {
+      if (value && typeof value === 'object' && !Array.isArray(value) && value.DataType) {
+        return [name, value]
+      }
+      if (typeof value === 'number') {
+        return [name, { DataType: 'Number', StringValue: String(value) }]
+      }
+      return [name, { DataType: 'String', StringValue: String(value) }]
+    }),
+  )
 }
 
 function nextQueueName() {
@@ -602,6 +639,12 @@ onMounted(loadQueues)
   padding: 16px;
 }
 
+.send-options {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+}
+
 .settings-actions,
 .raw-panel {
   padding: 0 16px 16px;
@@ -635,7 +678,8 @@ pre {
   }
 
   .summary-grid,
-  .settings-grid {
+  .settings-grid,
+  .send-options {
     grid-template-columns: 1fr;
   }
 }

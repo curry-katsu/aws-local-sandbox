@@ -1,9 +1,11 @@
 import {
+  CreateTableCommand,
   DeleteItemCommand,
   DescribeTableCommand,
   DynamoDBClient,
   ListTablesCommand,
   PutItemCommand,
+  QueryCommand,
   ScanCommand,
 } from '@aws-sdk/client-dynamodb'
 import { clientConfig } from './config'
@@ -20,11 +22,107 @@ export async function describeTable(tableName) {
   return result.Table || null
 }
 
-export async function scanTable(tableName, limit) {
+export async function createTable(table) {
+  const keySchema = [{ AttributeName: table.partitionKeyName, KeyType: 'HASH' }]
+  const attributeDefinitions = [
+    { AttributeName: table.partitionKeyName, AttributeType: table.partitionKeyType },
+  ]
+
+  if (table.sortKeyName) {
+    keySchema.push({ AttributeName: table.sortKeyName, KeyType: 'RANGE' })
+    attributeDefinitions.push({
+      AttributeName: table.sortKeyName,
+      AttributeType: table.sortKeyType,
+    })
+  }
+
+  await dynamodb.send(
+    new CreateTableCommand({
+      TableName: table.tableName,
+      KeySchema: keySchema,
+      AttributeDefinitions: attributeDefinitions,
+      ProvisionedThroughput: {
+        ReadCapacityUnits: Number(table.readCapacityUnits) || 5,
+        WriteCapacityUnits: Number(table.writeCapacityUnits) || 5,
+      },
+    }),
+  )
+}
+
+export async function scanTable(tableName, limit, filter = null) {
+  const input = {
+    TableName: tableName,
+    Limit: limit,
+  }
+
+  if (filter?.attributeName && filter?.value !== '') {
+    input.ExpressionAttributeNames = { '#filterAttr': filter.attributeName }
+    input.ExpressionAttributeValues = {
+      ':filterValue': toDynamoValueFromTypedString(filter.value, filter.attributeType),
+    }
+    input.FilterExpression =
+      filter.operator === 'contains'
+        ? 'contains(#filterAttr, :filterValue)'
+        : '#filterAttr = :filterValue'
+  }
+
+  const result = await dynamodb.send(new ScanCommand(input))
+  return result.Items || []
+}
+
+export async function scanAllTableItems(tableName) {
+  const items = []
+  let exclusiveStartKey = undefined
+
+  do {
+    const result = await dynamodb.send(
+      new ScanCommand({
+        TableName: tableName,
+        ExclusiveStartKey: exclusiveStartKey,
+      }),
+    )
+    items.push(...(result.Items || []))
+    exclusiveStartKey = result.LastEvaluatedKey
+  } while (exclusiveStartKey)
+
+  return items
+}
+
+export async function queryTable(tableName, keySchema, attributeDefinitions, keyValues, limit) {
+  const partitionKey = keySchema.find((key) => key.KeyType === 'HASH')
+  const sortKey = keySchema.find((key) => key.KeyType === 'RANGE')
+  if (!partitionKey) {
+    throw new Error('Selected table does not have a partition key.')
+  }
+  if (!keyValues.partitionKeyValue) {
+    throw new Error(`${partitionKey.AttributeName} is required for Query.`)
+  }
+
+  const names = { '#pk': partitionKey.AttributeName }
+  const values = {
+    ':pk': toDynamoValueFromTypedString(
+      keyValues.partitionKeyValue,
+      attributeTypeFor(partitionKey.AttributeName, attributeDefinitions),
+    ),
+  }
+  const expressions = ['#pk = :pk']
+
+  if (sortKey && keyValues.sortKeyValue) {
+    names['#sk'] = sortKey.AttributeName
+    values[':sk'] = toDynamoValueFromTypedString(
+      keyValues.sortKeyValue,
+      attributeTypeFor(sortKey.AttributeName, attributeDefinitions),
+    )
+    expressions.push('#sk = :sk')
+  }
+
   const result = await dynamodb.send(
-    new ScanCommand({
+    new QueryCommand({
       TableName: tableName,
       Limit: limit,
+      KeyConditionExpression: expressions.join(' AND '),
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
     }),
   )
   return result.Items || []
@@ -78,6 +176,25 @@ function toDynamoValue(value) {
   throw new Error(`Unsupported DynamoDB JSON value: ${String(value)}`)
 }
 
+function toDynamoValueFromTypedString(value, attributeType) {
+  if (attributeType === 'N') {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) {
+      throw new Error(`Value "${value}" must be a number.`)
+    }
+    return { N: String(parsed) }
+  }
+  if (attributeType === 'B') return { B: value }
+  return { S: String(value) }
+}
+
+function attributeTypeFor(attributeName, attributeDefinitions) {
+  return (
+    attributeDefinitions.find((attribute) => attribute.AttributeName === attributeName)
+      ?.AttributeType || 'S'
+  )
+}
+
 export function fromDynamoItem(item) {
   return Object.fromEntries(
     Object.entries(item || {}).map(([key, value]) => [key, fromDynamoValue(value)]),
@@ -96,4 +213,3 @@ function fromDynamoValue(value) {
   if ('BS' in value) return value.BS || []
   return value
 }
-
