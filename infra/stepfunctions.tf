@@ -30,12 +30,19 @@ resource "aws_iam_role" "stepfunctions_demo_lambda" {
     Project = "aws-local-sandbox"
     Managed = "terraform"
   }
+
+  lifecycle {
+    ignore_changes = [
+      tags,
+      tags_all,
+    ]
+  }
 }
 
 resource "aws_lambda_function" "stepfunctions_first" {
   function_name = "aws-local-sandbox-stepfunctions-first"
   role          = aws_iam_role.stepfunctions_demo_lambda.arn
-  runtime       = "python3.12"
+  runtime       = "python3.13"
   handler       = "index.handler"
   timeout       = 15
 
@@ -46,12 +53,20 @@ resource "aws_lambda_function" "stepfunctions_first" {
     Project = "aws-local-sandbox"
     Managed = "terraform"
   }
+
+  lifecycle {
+    ignore_changes = [
+      environment,
+      tags,
+      tags_all,
+    ]
+  }
 }
 
 resource "aws_lambda_function" "stepfunctions_second" {
   function_name = "aws-local-sandbox-stepfunctions-second"
   role          = aws_iam_role.stepfunctions_demo_lambda.arn
-  runtime       = "python3.12"
+  runtime       = "python3.13"
   handler       = "index.handler"
   timeout       = 15
 
@@ -61,6 +76,14 @@ resource "aws_lambda_function" "stepfunctions_second" {
   tags = {
     Project = "aws-local-sandbox"
     Managed = "terraform"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      environment,
+      tags,
+      tags_all,
+    ]
   }
 }
 

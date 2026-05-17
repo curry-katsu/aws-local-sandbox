@@ -3,7 +3,7 @@ name = "cognito-user-create"
 version = "0.1.0"
 description = "Verification tool for creating a Cognito user in Floci."
 readme = "README.md"
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.13,<4.0"
 authors = [{ name = "aws-local-sandbox contributors" }]
 dependencies = [
   "boto3>=1.35.0,<2.0.0",
@@ -22,7 +22,7 @@ isort = "^5.13.0"
 
 [tool.black]
 line-length = 100
-target-version = ["py311"]
+target-version = ["py313"]
 
 [tool.isort]
 profile = "black"

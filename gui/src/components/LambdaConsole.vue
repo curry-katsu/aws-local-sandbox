@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-h6">Lambda</h2>
         <p class="text-body-2 text-medium-emphasis ma-0">
-          Inspect local functions and run a request-response invocation.
+          Inspect local functions, invoke handlers, and review published layers.
         </p>
       </div>
       <div class="tool-actions">
@@ -13,7 +13,7 @@
           variant="tonal"
           prepend-icon="mdi-refresh"
           :loading="loading"
-          @click="loadFunctions"
+          @click="refreshActiveTab"
         >
           Refresh
         </v-btn>
@@ -21,13 +21,20 @@
           color="primary"
           prepend-icon="mdi-play-circle-outline"
           :loading="invoking"
-          :disabled="!selectedFunctionName"
+          :disabled="activeTab !== 'functions' || !selectedFunctionName"
           @click="invokeSelectedFunction"
         >
           Invoke
         </v-btn>
       </div>
     </div>
+
+    <v-divider />
+
+    <v-tabs v-model="activeTab" density="comfortable">
+      <v-tab value="functions" prepend-icon="mdi-lambda">Functions</v-tab>
+      <v-tab value="layers" prepend-icon="mdi-layers-outline">Layers</v-tab>
+    </v-tabs>
 
     <v-divider />
 
@@ -39,7 +46,7 @@
         {{ statusMessage }}
       </v-alert>
 
-      <v-row align="stretch">
+      <v-row v-if="activeTab === 'functions'" align="stretch">
         <v-col cols="12" md="4">
           <v-sheet border rounded="lg" class="panel">
             <div class="panel-title">Functions</div>
@@ -114,26 +121,133 @@
           </div>
         </v-col>
       </v-row>
+
+      <v-row v-else align="stretch">
+        <v-col cols="12" md="4">
+          <v-sheet border rounded="lg" class="panel">
+            <div class="panel-title">Layers</div>
+            <v-list density="compact" nav>
+              <v-list-item
+                v-if="layers.length === 0"
+                title="No layers found"
+                subtitle="Floci may not support Lambda Layer publishing yet."
+              />
+              <v-list-item
+                v-for="item in layers"
+                :key="item.LayerName"
+                :active="item.LayerName === selectedLayerName"
+                :title="item.LayerName"
+                :subtitle="item.LayerArn || 'ARN unavailable'"
+                prepend-icon="mdi-layers-outline"
+                @click="selectLayer(item.LayerName)"
+              />
+            </v-list>
+          </v-sheet>
+        </v-col>
+
+        <v-col cols="12" md="8">
+          <div class="detail-stack">
+            <div class="summary-grid">
+              <div class="summary-cell">
+                <div class="text-caption text-medium-emphasis">Layer</div>
+                <div class="text-body-2 font-weight-medium text-truncate">
+                  {{ selectedLayer?.LayerName || 'Not selected' }}
+                </div>
+              </div>
+              <div class="summary-cell">
+                <div class="text-caption text-medium-emphasis">Latest version</div>
+                <div class="text-body-2 font-weight-medium">
+                  {{ selectedLayer?.LatestMatchingVersion?.Version || 'Not loaded' }}
+                </div>
+              </div>
+              <div class="summary-cell">
+                <div class="text-caption text-medium-emphasis">Versions loaded</div>
+                <div class="text-body-2 font-weight-medium">
+                  {{ layerVersions.length }}
+                </div>
+              </div>
+            </div>
+
+            <v-sheet border rounded="lg" class="panel compact-panel">
+              <div class="panel-title">Versions</div>
+              <v-table density="compact">
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Runtime</th>
+                    <th>Created</th>
+                    <th class="text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="layerVersions.length === 0">
+                    <td colspan="4" class="text-medium-emphasis">No versions loaded.</td>
+                  </tr>
+                  <tr v-for="version in layerVersions" :key="version.Version">
+                    <td>{{ version.Version }}</td>
+                    <td>{{ formatRuntimeList(version.CompatibleRuntimes) }}</td>
+                    <td>{{ version.CreatedDate || 'Unknown' }}</td>
+                    <td class="text-right">
+                      <v-btn
+                        size="small"
+                        variant="text"
+                        color="primary"
+                        :loading="loadingLayerDetail && selectedLayerVersion === version.Version"
+                        @click="loadLayerVersionDetail(selectedLayerName, version.Version)"
+                      >
+                        Inspect
+                      </v-btn>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-sheet>
+
+            <v-expansion-panels variant="accordion" multiple>
+              <v-expansion-panel title="Layer metadata">
+                <v-expansion-panel-text>
+                  <pre>{{ formatJson(selectedLayer || {}) }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+              <v-expansion-panel title="Layer version detail">
+                <v-expansion-panel-text>
+                  <pre>{{ formatJson(layerVersionDetail || {}) }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </div>
+        </v-col>
+      </v-row>
     </div>
   </v-sheet>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   getLambdaFunction,
+  getLambdaLayerVersion,
   invokeLambdaFunction,
+  listLambdaLayerVersions,
+  listLambdaLayers,
   listLambdaFunctions,
 } from '../aws/lambda'
 
+const activeTab = ref('functions')
 const loading = ref(false)
 const loadingDetail = ref(false)
+const loadingLayerDetail = ref(false)
 const invoking = ref(false)
 const error = ref('')
 const statusMessage = ref('')
 const functions = ref([])
+const layers = ref([])
+const layerVersions = ref([])
 const selectedFunctionName = ref('')
+const selectedLayerName = ref('')
+const selectedLayerVersion = ref(null)
 const functionDetail = ref(null)
+const layerVersionDetail = ref(null)
 const invokeResult = ref(null)
 const invokePayload = ref(JSON.stringify({
   source: 'gui',
@@ -143,6 +257,19 @@ const invokePayload = ref(JSON.stringify({
 const selectedFunction = computed(() =>
   functions.value.find((candidate) => candidate.FunctionName === selectedFunctionName.value) || null,
 )
+
+const selectedLayer = computed(() =>
+  layers.value.find((candidate) => candidate.LayerName === selectedLayerName.value) || null,
+)
+
+async function refreshActiveTab() {
+  if (activeTab.value === 'layers') {
+    await loadLayers()
+    return
+  }
+
+  await loadFunctions()
+}
 
 async function loadFunctions() {
   loading.value = true
@@ -168,6 +295,33 @@ async function loadFunctions() {
   }
 }
 
+async function loadLayers() {
+  loading.value = true
+  error.value = ''
+  statusMessage.value = ''
+
+  try {
+    layers.value = await listLambdaLayers()
+
+    if (!selectedLayerName.value && layers.value.length > 0) {
+      selectedLayerName.value = layers.value[0].LayerName
+    }
+
+    if (selectedLayerName.value) {
+      await loadLayerVersions(selectedLayerName.value)
+    }
+
+    statusMessage.value = `Loaded ${layers.value.length} Lambda layer(s).`
+  } catch (caught) {
+    layers.value = []
+    layerVersions.value = []
+    layerVersionDetail.value = null
+    error.value = messageFromError(caught, 'Failed to load Lambda layers.')
+  } finally {
+    loading.value = false
+  }
+}
+
 async function selectFunction(functionName) {
   selectedFunctionName.value = functionName
   invokeResult.value = null
@@ -185,6 +339,44 @@ async function loadFunctionDetail(functionName) {
     error.value = messageFromError(caught, 'Failed to load Lambda function details.')
   } finally {
     loadingDetail.value = false
+  }
+}
+
+async function selectLayer(layerName) {
+  selectedLayerName.value = layerName
+  selectedLayerVersion.value = null
+  layerVersionDetail.value = null
+  await loadLayerVersions(layerName)
+}
+
+async function loadLayerVersions(layerName) {
+  loadingDetail.value = true
+  error.value = ''
+
+  try {
+    layerVersions.value = await listLambdaLayerVersions(layerName)
+  } catch (caught) {
+    layerVersions.value = []
+    error.value = messageFromError(caught, 'Failed to load Lambda layer versions.')
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
+async function loadLayerVersionDetail(layerName, versionNumber) {
+  if (!layerName || !versionNumber) return
+
+  loadingLayerDetail.value = true
+  selectedLayerVersion.value = versionNumber
+  error.value = ''
+
+  try {
+    layerVersionDetail.value = await getLambdaLayerVersion(layerName, versionNumber)
+  } catch (caught) {
+    layerVersionDetail.value = null
+    error.value = messageFromError(caught, 'Failed to load Lambda layer version details.')
+  } finally {
+    loadingLayerDetail.value = false
   }
 }
 
@@ -208,12 +400,26 @@ function formatJson(value) {
   return JSON.stringify(value, null, 2)
 }
 
+function formatRuntimeList(value) {
+  if (!value || value.length === 0) return 'Any'
+  return value.join(', ')
+}
+
 function messageFromError(caught, fallback) {
   if (caught instanceof Error && caught.message) return caught.message
   return fallback
 }
 
 onMounted(loadFunctions)
+
+watch(activeTab, async (nextTab) => {
+  error.value = ''
+  statusMessage.value = ''
+
+  if (nextTab === 'layers' && layers.value.length === 0) {
+    await loadLayers()
+  }
+})
 </script>
 
 <style scoped>
@@ -242,6 +448,11 @@ onMounted(loadFunctions)
   height: 100%;
   min-height: 360px;
   overflow: hidden;
+}
+
+.compact-panel {
+  height: auto;
+  min-height: 0;
 }
 
 .panel-title {

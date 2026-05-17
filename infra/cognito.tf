@@ -29,6 +29,13 @@ resource "aws_cognito_user_pool" "sandbox" {
     Project = "aws-local-sandbox"
     Managed = "terraform"
   }
+
+  lifecycle {
+    ignore_changes = [
+      device_configuration,
+      user_pool_add_ons,
+    ]
+  }
 }
 
 resource "aws_cognito_user_pool_client" "sandbox" {

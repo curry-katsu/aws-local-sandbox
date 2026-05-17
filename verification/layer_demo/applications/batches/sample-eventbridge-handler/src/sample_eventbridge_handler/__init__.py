@@ -1,0 +1,1 @@
+"""Sample EventBridge Lambda application."""

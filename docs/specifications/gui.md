@@ -72,6 +72,7 @@ Discovered resources:
 - SQS queues
 - SNS topics
 - Lambda functions
+- Lambda layers
 - RDS clusters
 - Cognito user pools and clients
 - EventBridge rules
@@ -138,8 +139,12 @@ The Lambda console supports:
 - Code metadata inspection
 - Request-response invocation with editable JSON payload
 - Invocation status, function error, executed version, and payload inspection
+- Lambda layer listing
+- Selected layer version listing
+- Selected layer version metadata inspection
 
 Lambda invocation uses the local Floci endpoint and dummy credentials only. Function code is not edited from the GUI.
+Floci currently returns HTTP 405 for Lambda layer publishing, so the layer tab is mainly for endpoints that expose published layer metadata. Unsupported layer APIs are reported inline without blocking function inspection or invocation.
 
 ## RDS Console
 
