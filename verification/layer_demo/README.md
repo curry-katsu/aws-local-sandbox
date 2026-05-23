@@ -10,7 +10,7 @@ Lambda Layer behavior verification workspace for Floci.
 - `libs/api-utils`: Shared utilities for API applications.
 - `libs/batch-utils`: Shared utilities for batch applications.
 - `libs/utils`: System-wide shared utilities.
-- `libs/sample-function-core`: Feature-specific shared library used across applications.
+- `libs/sample-function`: Feature-specific shared library used across applications.
 
 ## Dependency Shape
 
@@ -18,11 +18,11 @@ Library dependencies:
 
 - `api-utils` imports `utils`, but expects it from a separate Lambda layer.
 - `batch-utils` imports `utils`, but expects it from a separate Lambda layer.
-- `sample-function-core` imports `utils`, but is bundled into function artifacts and expects `utils` from a Lambda layer.
+- `sample-function` imports `utils`, but is bundled into function artifacts and expects `utils` from a Lambda layer.
 
 Application dependencies:
 
-- `sample-api` bundles `sample-function-core` and expects `utils` + `api-utils` from layers.
+- `sample-api` bundles `sample-function` and expects `utils` + `api-utils` from layers.
 - `sample-sqs-handler` expects `utils` + `batch-utils` from layers.
 - `sample-eventbridge-handler` expects `utils` from a layer.
 
@@ -45,7 +45,7 @@ Each layer zip is emitted under `infra/build/` and uses the Python Lambda layer 
 
 Terraform also packages Lambda function artifacts:
 
-- `layer_demo_sample_api_lambda.zip`: includes `sample_api` and bundled `sample_function_core`.
+- `layer_demo_sample_api_lambda.zip`: includes `sample_api` and bundled `sample_function`.
 - `layer_demo_sample_sqs_handler_lambda.zip`: includes only `sample_sqs_handler`.
 - `layer_demo_sample_eventbridge_handler_lambda.zip`: includes only `sample_eventbridge_handler`.
 

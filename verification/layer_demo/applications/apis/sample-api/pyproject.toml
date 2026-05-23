@@ -15,7 +15,7 @@ packages = [{ include = "sample_api", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.13,<4.0"
-sample-function-core = { path = "../../../libs/sample-function-core", develop = true }
+sample-function = { path = "../../../libs/sample-function", develop = true }
 
 [tool.poetry.group.layer-provided]
 optional = true

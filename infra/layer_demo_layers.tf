@@ -64,13 +64,13 @@ data "archive_file" "layer_demo_sample_api_lambda" {
   }
 
   source {
-    content  = file("${path.module}/../verification/layer_demo/libs/sample-function-core/src/sample_function_core/__init__.py")
-    filename = "sample_function_core/__init__.py"
+    content  = file("${path.module}/../verification/layer_demo/libs/sample-function/src/sample_function/__init__.py")
+    filename = "sample_function/__init__.py"
   }
 
   source {
-    content  = file("${path.module}/../verification/layer_demo/libs/sample-function-core/src/sample_function_core/use_case.py")
-    filename = "sample_function_core/use_case.py"
+    content  = file("${path.module}/../verification/layer_demo/libs/sample-function/src/sample_function/use_case.py")
+    filename = "sample_function/use_case.py"
   }
 }
 

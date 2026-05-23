@@ -1,5 +1,5 @@
 from api_utils import api_dependency_chain
-from sample_function_core import feature_dependency_chain
+from sample_function import feature_dependency_chain
 
 
 def lambda_handler(event: dict, context: object) -> dict:

@@ -1,11 +1,8 @@
 import {
   GetFunctionCommand,
-  GetLayerVersionCommand,
   InvokeCommand,
   LambdaClient,
   ListFunctionsCommand,
-  ListLayersCommand,
-  ListLayerVersionsCommand,
 } from '@aws-sdk/client-lambda'
 import { clientConfig } from './config'
 
@@ -33,52 +30,6 @@ export async function getLambdaFunction(functionName) {
   return lambda.send(
     new GetFunctionCommand({
       FunctionName: functionName,
-    }),
-  )
-}
-
-export async function listLambdaLayers() {
-  const layers = []
-  let marker
-
-  do {
-    const result = await lambda.send(
-      new ListLayersCommand({
-        Marker: marker,
-        MaxItems: 50,
-      }),
-    )
-    layers.push(...(result.Layers || []))
-    marker = result.NextMarker
-  } while (marker)
-
-  return layers
-}
-
-export async function listLambdaLayerVersions(layerName) {
-  const versions = []
-  let marker
-
-  do {
-    const result = await lambda.send(
-      new ListLayerVersionsCommand({
-        LayerName: layerName,
-        Marker: marker,
-        MaxItems: 50,
-      }),
-    )
-    versions.push(...(result.LayerVersions || []))
-    marker = result.NextMarker
-  } while (marker)
-
-  return versions
-}
-
-export async function getLambdaLayerVersion(layerName, versionNumber) {
-  return lambda.send(
-    new GetLayerVersionCommand({
-      LayerName: layerName,
-      VersionNumber: versionNumber,
     }),
   )
 }

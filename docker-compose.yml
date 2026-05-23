@@ -1,6 +1,6 @@
 services:
   floci:
-    image: floci/floci:latest
+    image: floci/floci:1.5.16
     container_name: aws-local-sandbox-floci
     ports:
       - "4566:4566"

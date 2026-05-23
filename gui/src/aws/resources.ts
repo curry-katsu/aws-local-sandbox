@@ -4,7 +4,7 @@ import { ListStateMachinesCommand } from '@aws-sdk/client-sfn'
 import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider'
 import { DynamoDBClient, ListTablesCommand } from '@aws-sdk/client-dynamodb'
 import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
-import { LambdaClient, ListFunctionsCommand, ListLayersCommand } from '@aws-sdk/client-lambda'
+import { LambdaClient, ListFunctionsCommand } from '@aws-sdk/client-lambda'
 import { RDSClient, DescribeDBClustersCommand } from '@aws-sdk/client-rds'
 import { S3Client, ListBucketsCommand } from '@aws-sdk/client-s3'
 import { SFNClient } from '@aws-sdk/client-sfn'
@@ -31,7 +31,6 @@ export async function discoverResources() {
     userPoolOutcome,
     ruleOutcome,
     lambdaOutcome,
-    lambdaLayerOutcome,
     stateMachineOutcome,
     dbClusterOutcome,
   ] = await Promise.allSettled([
@@ -42,7 +41,6 @@ export async function discoverResources() {
     cognito.send(new ListUserPoolsCommand({ MaxResults: 60 })),
     eventbridge.send(new ListRulesCommand({ Limit: 100 })),
     lambda.send(new ListFunctionsCommand({ MaxItems: 50 })),
-    lambda.send(new ListLayersCommand({ MaxItems: 50 })),
     sfn.send(new ListStateMachinesCommand({ maxResults: 100 })),
     rds.send(new DescribeDBClustersCommand({})),
   ])
@@ -61,7 +59,6 @@ export async function discoverResources() {
   const userPoolResult = resultOrDefault('Cognito', userPoolOutcome, { UserPools: [] })
   const ruleResult = resultOrDefault('EventBridge', ruleOutcome, { Rules: [] })
   const lambdaResult = resultOrDefault('Lambda', lambdaOutcome, { Functions: [] })
-  const lambdaLayerResult = resultOrDefault('Lambda Layers', lambdaLayerOutcome, { Layers: [] })
   const stateMachineResult = resultOrDefault('Step Functions', stateMachineOutcome, {
     stateMachines: [],
   })
@@ -129,11 +126,6 @@ export async function discoverResources() {
         service: 'Lambda',
         name: fn.FunctionName,
         id: fn.FunctionArn,
-      })),
-      ...(lambdaLayerResult.Layers || []).map((layer) => ({
-        service: 'Lambda Layer',
-        name: layer.LayerName,
-        id: layer.LayerArn,
       })),
       ...(stateMachineResult.stateMachines || []).map((stateMachine) => ({
         service: 'Step Functions',

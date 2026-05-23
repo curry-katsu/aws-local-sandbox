@@ -1,5 +1,5 @@
 [project]
-name = "sample-function-core"
+name = "sample-function"
 version = "0.1.0"
 description = "Feature-specific shared library for the Floci Lambda layer demo."
 readme = "README.md"
@@ -8,7 +8,7 @@ authors = [{ name = "aws-local-sandbox contributors" }]
 dynamic = ["dependencies"]
 
 [tool.poetry]
-packages = [{ include = "sample_function_core", from = "src" }]
+packages = [{ include = "sample_function", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.13,<4.0"

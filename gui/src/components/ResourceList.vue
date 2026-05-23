@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-h6">Resources</h2>
         <p class="text-body-2 text-medium-emphasis ma-0">
-          S3, DynamoDB, SQS, SNS, Lambda, Lambda Layer, RDS, Cognito, EventBridge, and Step Functions resources discovered through AWS SDK v3.
+          S3, DynamoDB, SQS, SNS, Lambda, RDS, Cognito, EventBridge, and Step Functions resources discovered through AWS SDK v3.
         </p>
       </div>
       <v-btn
