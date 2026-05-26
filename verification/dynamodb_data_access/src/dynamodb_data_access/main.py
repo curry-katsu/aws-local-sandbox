@@ -6,12 +6,13 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
 from dynamodb_data_access.dynamodb import DynamoDbClient
-from dynamodb_data_access.sandbox_table_dao import SandboxRecord, SandboxTableDao
+from dynamodb_data_access.sandbox_table_dao import DeviceType, SandboxRecord, SandboxTableDao
 
 DEFAULT_ENDPOINT_URL = "http://localhost:4566"
 DEFAULT_REGION = "us-east-1"
@@ -44,6 +45,8 @@ def utc_now() -> str:
 
 
 def to_jsonable(value: Any) -> Any:
+    if isinstance(value, Enum):
+        return value.value
     if isinstance(value, Decimal):
         if value % 1 == 0:
             return int(value)
@@ -65,6 +68,7 @@ def build_records(run_id: str) -> list[SandboxRecord]:
             sk=f"ITEM#{index:02d}",
             message=f"dynamodb verification item {index}",
             status="PENDING",
+            device_type=DeviceType.IOS if index % 2 else DeviceType.ANDROID,
             run_id=run_id,
             created_at=created_at,
             updated_at=created_at,
@@ -72,6 +76,48 @@ def build_records(run_id: str) -> list[SandboxRecord]:
         )
         for index in range(1, 4)
     ]
+
+
+def build_single_record(run_id: str) -> SandboxRecord:
+    created_at = utc_now()
+    return SandboxRecord(
+        pk=f"SINGLE#{run_id}",
+        sk="ITEM#001",
+        message="single put/update sample item",
+        status="PENDING",
+        device_type=DeviceType.IOS,
+        run_id=run_id,
+        created_at=created_at,
+        updated_at=created_at,
+        attempt_count=0,
+    )
+
+
+def run_single_item_sample(dao: SandboxTableDao, run_id: str) -> dict[str, Any]:
+    record = build_single_record(run_id)
+
+    dao.put(record)
+    fetched_after_put = dao.get(record.pk, record.sk)
+
+    updated_after_update = dao.update_item(
+        pk=record.pk,
+        sk=record.sk,
+        set_values={
+            "status": "SINGLE_DONE",
+            "updated_at": utc_now(),
+            "message": "single item updated through generic update_item",
+        },
+        add_values={"attempt_count": 1},
+    )
+
+    return {
+        "record_key": {"pk": record.pk, "sk": record.sk},
+        "put_item": fetched_after_put,
+        "update_item": updated_after_update,
+        "put_passed": fetched_after_put == record,
+        "update_passed": updated_after_update.status == "SINGLE_DONE"
+        and updated_after_update.attempt_count == 1,
+    }
 
 
 def run_verification(settings: Settings) -> dict[str, Any]:
@@ -84,6 +130,7 @@ def run_verification(settings: Settings) -> dict[str, Any]:
     dao = SandboxTableDao(client=client, table_name=settings.table_name)
     run_id = str(uuid.uuid4())
     records = build_records(run_id)
+    single_item_sample = run_single_item_sample(dao, run_id)
 
     dao.batch_put(records)
 
@@ -97,10 +144,19 @@ def run_verification(settings: Settings) -> dict[str, Any]:
     )
     queried = dao.list_by_pk(first.pk)
     done_items = dao.scan_by_status("DONE", limit=25)
+    fetched_device_type_is_enum = isinstance(fetched.device_type, DeviceType) if fetched else False
+    updated_device_type_is_enum = isinstance(updated.device_type, DeviceType)
+    queried_device_types_are_enum = all(
+        isinstance(record.device_type, DeviceType) for record in queried
+    )
 
     if not settings.keep_items:
         for record in records:
             dao.delete(record.pk, record.sk)
+        dao.delete(
+            single_item_sample["record_key"]["pk"],
+            single_item_sample["record_key"]["sk"],
+        )
 
     return {
         "status": "ok",
@@ -109,11 +165,23 @@ def run_verification(settings: Settings) -> dict[str, Any]:
         "region": settings.region,
         "table_name": settings.table_name,
         "operations": {
+            "single_item_sample": single_item_sample,
             "batch_put_count": len(records),
             "get_item": fetched,
             "update_item": updated,
             "query_count": len(queried),
             "scan_done_count": len(done_items),
+            "enum_conversion": {
+                "stored_value": first.device_type.value,
+                "fetched_device_type": fetched.device_type.name if fetched else None,
+                "fetched_device_type_value": fetched.device_type.value if fetched else None,
+                "fetched_device_type_is_enum": fetched_device_type_is_enum,
+                "updated_device_type_is_enum": updated_device_type_is_enum,
+                "queried_device_types_are_enum": queried_device_types_are_enum,
+                "passed": fetched_device_type_is_enum
+                and updated_device_type_is_enum
+                and queried_device_types_are_enum,
+            },
             "deleted_after_run": not settings.keep_items,
         },
     }

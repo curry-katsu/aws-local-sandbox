@@ -121,7 +121,70 @@ class BaseDynamoDao(Generic[DataT]):
             return_values=return_values,
         )
         attributes = response.get("Attributes")
-        return attributes if isinstance(attributes, dict) else {}
+        if isinstance(attributes, dict):
+            return attributes
+
+        raise RuntimeError(
+            f"UpdateItem did not return attributes: table={self.table_name}, key={key}, "
+            f"return_values={return_values}"
+        )
+
+    def _update_attributes_raw(
+        self,
+        key: dict[str, Any],
+        set_values: dict[str, Any] | None = None,
+        add_values: dict[str, Any] | None = None,
+        remove_fields: list[str] | None = None,
+        condition_expression: str | None = None,
+        return_values: str = "ALL_NEW",
+    ) -> dict[str, Any]:
+        set_values = set_values or {}
+        add_values = add_values or {}
+        remove_fields = remove_fields or []
+
+        if not set_values and not add_values and not remove_fields:
+            raise ValueError("At least one update operation is required.")
+
+        expression_parts: list[str] = []
+        expression_attribute_names: dict[str, str] = {}
+        expression_attribute_values: dict[str, Any] = {}
+
+        if set_values:
+            set_expressions = []
+            for index, (field_name, value) in enumerate(set_values.items()):
+                name_token = f"#set_name_{index}"
+                value_token = f":set_value_{index}"
+                expression_attribute_names[name_token] = field_name
+                expression_attribute_values[value_token] = value
+                set_expressions.append(f"{name_token} = {value_token}")
+            expression_parts.append(f"SET {', '.join(set_expressions)}")
+
+        if add_values:
+            add_expressions = []
+            for index, (field_name, value) in enumerate(add_values.items()):
+                name_token = f"#add_name_{index}"
+                value_token = f":add_value_{index}"
+                expression_attribute_names[name_token] = field_name
+                expression_attribute_values[value_token] = value
+                add_expressions.append(f"{name_token} {value_token}")
+            expression_parts.append(f"ADD {', '.join(add_expressions)}")
+
+        if remove_fields:
+            remove_expressions = []
+            for index, field_name in enumerate(remove_fields):
+                name_token = f"#remove_name_{index}"
+                expression_attribute_names[name_token] = field_name
+                remove_expressions.append(name_token)
+            expression_parts.append(f"REMOVE {', '.join(remove_expressions)}")
+
+        return self._update_raw(
+            key=key,
+            update_expression=" ".join(expression_parts),
+            expression_attribute_names=expression_attribute_names,
+            expression_attribute_values=expression_attribute_values,
+            condition_expression=condition_expression,
+            return_values=return_values,
+        )
 
     def _delete_raw(
         self,
