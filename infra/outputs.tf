@@ -6,6 +6,10 @@ output "dynamodb_table_name" {
   value = aws_dynamodb_table.sandbox.name
 }
 
+output "dynamodb_index_ttl_table_name" {
+  value = aws_dynamodb_table.index_ttl_verification.name
+}
+
 output "sqs_queue_url" {
   value = aws_sqs_queue.sandbox.url
 }
