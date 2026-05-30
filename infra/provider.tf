@@ -38,9 +38,11 @@ provider "aws" {
     logs           = var.aws_endpoint_url
     rds            = var.aws_endpoint_url
     s3             = var.aws_endpoint_url
+    secretsmanager = var.aws_endpoint_url
     sns            = var.aws_endpoint_url
     sqs            = var.aws_endpoint_url
     sfn            = var.aws_endpoint_url
+    ssm            = var.aws_endpoint_url
     sts            = var.aws_endpoint_url
   }
 }

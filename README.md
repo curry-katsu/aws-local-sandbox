@@ -7,6 +7,7 @@
 - Floci: LocalStack-compatible AWS emulator.
 - Terraform: Local provisioning for S3, DynamoDB, SQS, SNS, RDS, and Cognito.
 - Vue 3 + Vite + Vuetify 3: GUI for inspecting local resources and testing Cognito login.
+- `libs/`: Reusable local libraries that are not tied to sandbox verification resources.
 - Makefile: Shared entry point for service lifecycle, IaC, GUI, and verification tasks.
 
 ## Quick Start
@@ -88,6 +89,18 @@ The Cognito verification tool lives in `verification/cognito_user_create/`. It c
 make verify-cognito-install
 make verify-cognito-create-user
 make verify-cognito-login-jwt
+```
+
+## Reusable Libraries
+
+Shared libraries live under `libs/`. They should remain usable from other projects and must not hard-code Floci endpoints, dummy credentials, Terraform resource names, or verification-only behavior.
+
+`libs/aws-boto-utils/` is a Poetry package for common boto3 setup and small service wrappers. It currently includes helpers for Secrets Manager and SSM Parameter Store.
+
+```sh
+cd libs/aws-boto-utils
+poetry install
+poetry run pytest
 ```
 
 ## Data Persistence

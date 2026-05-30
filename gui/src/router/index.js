@@ -8,6 +8,7 @@ export const navigationItems = [
   { path: '/sns', title: 'SNS', icon: 'mdi-bullhorn-outline' },
   { path: '/lambda', title: 'Lambda', icon: 'mdi-lambda' },
   { path: '/rds', title: 'RDS', icon: 'mdi-database-cog-outline' },
+  { path: '/secrets', title: 'Secrets & Parameters', icon: 'mdi-shield-key-outline' },
   { path: '/cognito', title: 'Cognito', icon: 'mdi-account-key-outline' },
   { path: '/eventbridge', title: 'EventBridge', icon: 'mdi-calendar-clock-outline' },
   {
@@ -25,16 +26,17 @@ const routes = [
   { path: '/sns', component: () => import('../views/SnsView.vue'), meta: navigationItems[4] },
   { path: '/lambda', component: () => import('../views/LambdaView.vue'), meta: navigationItems[5] },
   { path: '/rds', component: () => import('../views/RdsView.vue'), meta: navigationItems[6] },
-  { path: '/cognito', component: () => import('../views/CognitoView.vue'), meta: navigationItems[7] },
+  { path: '/secrets', component: () => import('../views/SecretsView.vue'), meta: navigationItems[7] },
+  { path: '/cognito', component: () => import('../views/CognitoView.vue'), meta: navigationItems[8] },
   {
     path: '/eventbridge',
     component: () => import('../views/EventBridgeView.vue'),
-    meta: navigationItems[8],
+    meta: navigationItems[9],
   },
   {
     path: '/stepfunctions',
     component: () => import('../views/StepFunctionsView.vue'),
-    meta: navigationItems[9],
+    meta: navigationItems[10],
   },
   {
     path: '/:pathMatch(.*)*',
