@@ -14,6 +14,22 @@ output "sqs_queue_url" {
   value = aws_sqs_queue.sandbox.url
 }
 
+output "secretsmanager_sample_secret_name" {
+  value = aws_secretsmanager_secret.sample.name
+}
+
+output "secretsmanager_sample_secret_arn" {
+  value = aws_secretsmanager_secret.sample.arn
+}
+
+output "ssm_sample_config_parameter_name" {
+  value = aws_ssm_parameter.sample_config.name
+}
+
+output "ssm_sample_secure_parameter_name" {
+  value = aws_ssm_parameter.sample_secure.name
+}
+
 output "sns_fanout_topic_arn" {
   value = aws_sns_topic.sandbox_fanout.arn
 }

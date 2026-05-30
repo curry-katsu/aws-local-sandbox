@@ -37,6 +37,7 @@ The left navigation switches between service consoles:
 - SNS
 - Lambda
 - RDS
+- Secrets & Parameters
 - Cognito
 - EventBridge
 - Step Functions
@@ -50,6 +51,7 @@ Navigation is backed by Vue Router. Each service has a direct path:
 - `/sns`
 - `/lambda`
 - `/rds`
+- `/secrets`
 - `/cognito`
 - `/eventbridge`
 - `/stepfunctions`
@@ -74,6 +76,8 @@ Discovered resources:
 - SNS topics
 - Lambda functions
 - RDS clusters
+- Secrets Manager secrets
+- SSM Parameter Store parameters
 - Cognito user pools and clients
 - EventBridge rules
 - Step Functions state machines
@@ -154,6 +158,23 @@ The RDS console supports:
 - Writer endpoint, reader endpoint, port, database name, master user, and Multi-AZ metadata display
 
 The Floci demo Aurora PostgreSQL resource is backed by a local PostgreSQL container. The GUI inspects RDS metadata through AWS SDK v3 only; it does not open SQL connections from the browser.
+
+## Secrets & Parameters Console
+
+The Secrets & Parameters console supports:
+
+- Secrets Manager secret listing
+- Secret value display
+- Secret creation with optional description
+- Secret value updates by creating a new secret version
+- Secret deletion with confirmation
+- SSM Parameter Store parameter listing
+- Parameter value display with decryption enabled
+- Parameter creation for `String`, `StringList`, and `SecureString`
+- Parameter value and type updates with overwrite enabled
+- Parameter deletion with confirmation
+
+The console uses `gui/src/aws/secrets.ts` as its AWS SDK boundary. It does not hard-code the Terraform sample resource names; it discovers local resources through Secrets Manager and SSM APIs.
 
 ## Cognito Console
 
