@@ -1,0 +1,1 @@
+"""Sample SQS Lambda application."""

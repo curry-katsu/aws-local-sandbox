@@ -26,6 +26,16 @@
         >
           Invoke
         </v-btn>
+        <v-btn
+          color="secondary"
+          variant="tonal"
+          prepend-icon="mdi-text-box-search-outline"
+          :loading="loadingLogs"
+          :disabled="!selectedFunctionName"
+          @click="loadSelectedFunctionLogs"
+        >
+          Logs
+        </v-btn>
       </div>
     </div>
 
@@ -110,6 +120,56 @@
                   <pre>{{ formatJson(invokeResult || {}) }}</pre>
                 </v-expansion-panel-text>
               </v-expansion-panel>
+              <v-expansion-panel title="Recent logs">
+                <v-expansion-panel-text>
+                  <div class="log-toolbar">
+                    <v-text-field
+                      v-model="logRequestId"
+                      label="Request ID filter"
+                      density="compact"
+                      variant="outlined"
+                      hide-details
+                      clearable
+                    />
+                    <v-btn
+                      color="secondary"
+                      variant="tonal"
+                      prepend-icon="mdi-refresh"
+                      :loading="loadingLogs"
+                      :disabled="!selectedFunctionName"
+                      @click="loadSelectedFunctionLogs"
+                    >
+                      Refresh logs
+                    </v-btn>
+                  </div>
+                  <v-alert
+                    v-if="logError"
+                    class="mb-3"
+                    type="warning"
+                    variant="tonal"
+                    density="compact"
+                  >
+                    {{ logError }}
+                  </v-alert>
+                  <div v-if="lambdaLogs.length === 0" class="text-body-2 text-medium-emphasis">
+                    No log events loaded.
+                  </div>
+                  <div v-else class="log-list">
+                    <div
+                      v-for="event in lambdaLogs"
+                      :key="`${event.timestamp || 'unknown'}:${event.raw}`"
+                      class="log-entry"
+                    >
+                      <div class="log-meta">
+                        <span>{{ event.timestamp || 'timestamp unavailable' }}</span>
+                        <span v-if="event.requestId">requestId={{ event.requestId }}</span>
+                        <span>{{ event.source }}</span>
+                      </div>
+                      <pre>{{ formatLogEvent(event) }}</pre>
+                    </div>
+                  </div>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
             </v-expansion-panels>
           </div>
         </v-col>
@@ -125,16 +185,21 @@ import {
   invokeLambdaFunction,
   listLambdaFunctions,
 } from '../aws/lambda'
+import { getLambdaLogs } from '../aws/lambdaLogs'
 
 const loading = ref(false)
 const loadingDetail = ref(false)
+const loadingLogs = ref(false)
 const invoking = ref(false)
 const error = ref('')
+const logError = ref('')
 const statusMessage = ref('')
 const functions = ref([])
 const selectedFunctionName = ref('')
 const functionDetail = ref(null)
 const invokeResult = ref(null)
+const lambdaLogs = ref([])
+const logRequestId = ref('')
 const invokePayload = ref(JSON.stringify({
   source: 'gui',
   message: 'hello from Lambda dashboard',
@@ -171,6 +236,8 @@ async function loadFunctions() {
 async function selectFunction(functionName) {
   selectedFunctionName.value = functionName
   invokeResult.value = null
+  lambdaLogs.value = []
+  logError.value = ''
   await loadFunctionDetail(functionName)
 }
 
@@ -197,6 +264,7 @@ async function invokeSelectedFunction() {
   try {
     invokeResult.value = await invokeLambdaFunction(selectedFunctionName.value, invokePayload.value)
     statusMessage.value = `Invoked ${selectedFunctionName.value}.`
+    await loadSelectedFunctionLogs()
   } catch (caught) {
     error.value = messageFromError(caught, 'Failed to invoke Lambda function.')
   } finally {
@@ -204,8 +272,33 @@ async function invokeSelectedFunction() {
   }
 }
 
+async function loadSelectedFunctionLogs() {
+  if (!selectedFunctionName.value) return
+
+  loadingLogs.value = true
+  logError.value = ''
+
+  try {
+    const result = await getLambdaLogs(selectedFunctionName.value, {
+      requestId: logRequestId.value,
+      tail: 200,
+    })
+    lambdaLogs.value = result.events || []
+  } catch (caught) {
+    lambdaLogs.value = []
+    logError.value = messageFromError(caught, 'Failed to load Lambda logs.')
+  } finally {
+    loadingLogs.value = false
+  }
+}
+
 function formatJson(value) {
   return JSON.stringify(value, null, 2)
+}
+
+function formatLogEvent(event) {
+  if (event.parsedMessage) return formatJson(event.parsedMessage)
+  return event.message || event.raw || ''
 }
 
 function messageFromError(caught, fallback) {
@@ -269,6 +362,36 @@ onMounted(loadFunctions)
   padding: 12px;
 }
 
+.log-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: 12px;
+}
+
+.log-list {
+  display: grid;
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.log-entry {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.log-meta {
+  color: rgb(var(--v-theme-on-surface-variant));
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
 pre {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8125rem;
@@ -293,6 +416,10 @@ pre {
   }
 
   .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .log-toolbar {
     grid-template-columns: 1fr;
   }
 }

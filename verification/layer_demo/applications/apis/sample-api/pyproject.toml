@@ -1,0 +1,42 @@
+[project]
+name = "sample-api"
+version = "0.1.0"
+description = "Sample API Lambda application for the Floci Lambda layer demo."
+readme = "README.md"
+requires-python = ">=3.13,<4.0"
+authors = [{ name = "aws-local-sandbox contributors" }]
+dynamic = ["dependencies"]
+
+[project.scripts]
+sample-api-local = "sample_api.handler:main"
+
+[tool.poetry]
+packages = [{ include = "sample_api", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+sample-function = { path = "../../../libs/sample-function", develop = true }
+
+[tool.poetry.group.layer-provided]
+optional = true
+
+[tool.poetry.group.layer-provided.dependencies]
+api-utils = { path = "../../../libs/api-utils", develop = true }
+layer-demo-utils = { path = "../../../libs/utils", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+flake8 = "^7.1.0"
+isort = "^5.13.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"

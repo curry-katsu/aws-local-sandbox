@@ -86,3 +86,51 @@ output "aurora_postgres_demo_reader_endpoint" {
 output "aurora_postgres_demo_port" {
   value = aws_rds_cluster.aurora_postgres_demo.port
 }
+
+output "layer_demo_utils_layer_arn" {
+  value = try(aws_lambda_layer_version.layer_demo_utils[0].arn, null)
+}
+
+output "layer_demo_api_utils_layer_arn" {
+  value = try(aws_lambda_layer_version.layer_demo_api_utils[0].arn, null)
+}
+
+output "layer_demo_batch_utils_layer_arn" {
+  value = try(aws_lambda_layer_version.layer_demo_batch_utils[0].arn, null)
+}
+
+output "layer_demo_utils_zip_path" {
+  value = data.archive_file.layer_demo_utils.output_path
+}
+
+output "layer_demo_api_utils_zip_path" {
+  value = data.archive_file.layer_demo_api_utils.output_path
+}
+
+output "layer_demo_batch_utils_zip_path" {
+  value = data.archive_file.layer_demo_batch_utils.output_path
+}
+
+output "layer_demo_sample_api_lambda_zip_path" {
+  value = data.archive_file.layer_demo_sample_api_lambda.output_path
+}
+
+output "layer_demo_sample_sqs_handler_lambda_zip_path" {
+  value = data.archive_file.layer_demo_sample_sqs_handler_lambda.output_path
+}
+
+output "layer_demo_sample_eventbridge_handler_lambda_zip_path" {
+  value = data.archive_file.layer_demo_sample_eventbridge_handler_lambda.output_path
+}
+
+output "layer_demo_sample_api_lambda_name" {
+  value = try(aws_lambda_function.layer_demo_sample_api[0].function_name, null)
+}
+
+output "layer_demo_sample_sqs_handler_lambda_name" {
+  value = try(aws_lambda_function.layer_demo_sample_sqs_handler[0].function_name, null)
+}
+
+output "layer_demo_sample_eventbridge_handler_lambda_name" {
+  value = try(aws_lambda_function.layer_demo_sample_eventbridge_handler[0].function_name, null)
+}

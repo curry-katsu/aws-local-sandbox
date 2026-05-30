@@ -24,12 +24,19 @@ resource "aws_iam_role" "eventbridge_daily_noon_lambda" {
     Project = "aws-local-sandbox"
     Managed = "terraform"
   }
+
+  lifecycle {
+    ignore_changes = [
+      tags,
+      tags_all,
+    ]
+  }
 }
 
 resource "aws_lambda_function" "eventbridge_daily_noon" {
   function_name = "aws-local-sandbox-eventbridge-daily-noon"
   role          = aws_iam_role.eventbridge_daily_noon_lambda.arn
-  runtime       = "python3.12"
+  runtime       = "python3.13"
   handler       = "index.handler"
   timeout       = 15
 
@@ -39,6 +46,14 @@ resource "aws_lambda_function" "eventbridge_daily_noon" {
   tags = {
     Project = "aws-local-sandbox"
     Managed = "terraform"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      environment,
+      tags,
+      tags_all,
+    ]
   }
 }
 

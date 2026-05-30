@@ -1,6 +1,6 @@
 services:
   floci:
-    image: floci/floci:latest
+    image: floci/floci:1.5.16
     container_name: aws-local-sandbox-floci
     ports:
       - "4566:4566"
@@ -33,9 +33,27 @@ services:
       VITE_COGNITO_USER_POOL_ID: ${VITE_COGNITO_USER_POOL_ID:-}
       VITE_COGNITO_USER_POOL_CLIENT_ID: ${VITE_COGNITO_USER_POOL_CLIENT_ID:-}
       FLOCI_PROXY_TARGET: ${FLOCI_PROXY_TARGET:-http://floci:4566}
+      DEBUG_PROXY_TARGET: ${DEBUG_PROXY_TARGET:-http://debug-api:5180}
     volumes:
       - ./gui:/app
       - gui-node-modules:/app/node_modules
+    depends_on:
+      - floci
+      - debug-api
+
+  debug-api:
+    image: node:22-alpine
+    container_name: aws-local-sandbox-debug-api
+    working_dir: /app
+    command: node server.js
+    ports:
+      - "5180:5180"
+    environment:
+      PORT: 5180
+      FLOCI_CONTAINER_NAME: aws-local-sandbox-floci
+    volumes:
+      - ./debug-api:/app:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - floci
 

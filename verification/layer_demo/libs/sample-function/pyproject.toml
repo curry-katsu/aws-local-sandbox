@@ -1,19 +1,23 @@
 [project]
-name = "sqs-to-dynamodb-s3-log"
+name = "sample-function"
 version = "0.1.0"
-description = "Verification tool for reading Floci SQS messages, writing them to DynamoDB, and uploading JSON logs to S3."
+description = "Feature-specific shared library for the Floci Lambda layer demo."
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
 authors = [{ name = "aws-local-sandbox contributors" }]
-dependencies = [
-  "boto3>=1.35.0,<2.0.0",
-]
-
-[project.scripts]
-sqs-ddb-s3-verify = "sqs_to_dynamodb_s3_log.main:main"
+dynamic = ["dependencies"]
 
 [tool.poetry]
-packages = [{ include = "sqs_to_dynamodb_s3_log", from = "src" }]
+packages = [{ include = "sample_function", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+
+[tool.poetry.group.layer-provided]
+optional = true
+
+[tool.poetry.group.layer-provided.dependencies]
+layer-demo-utils = { path = "../utils", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

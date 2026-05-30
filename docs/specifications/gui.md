@@ -10,6 +10,7 @@ The GUI is a local management console for resources running on Floci through the
 - Framework: Vue 3, Vite, Vuetify 3
 - Default URL: `http://localhost:5173`
 - Browser AWS endpoint: `VITE_AWS_BROWSER_ENDPOINT_URL` or `/floci` through the Vite proxy
+- Local debug endpoint: `/debug` through the Vite proxy to `debug-api`
 - Region: `VITE_AWS_REGION` or `us-east-1`
 - Credentials: dummy local keys only
 
@@ -138,8 +139,11 @@ The Lambda console supports:
 - Code metadata inspection
 - Request-response invocation with editable JSON payload
 - Invocation status, function error, executed version, and payload inspection
+- Recent Lambda log inspection for the selected local function
+- Request ID filtering for loaded Lambda log events
 
 Lambda invocation uses the local Floci endpoint and dummy credentials only. Function code is not edited from the GUI.
+Lambda logs are read through the `gui/src/aws/lambdaLogs.ts` service boundary. The current local implementation calls the `debug-api` service, which reads Floci container logs through Docker. If Floci later exposes stable CloudWatch Logs APIs, replace the log service implementation/provider while keeping Vue components unchanged.
 
 ## RDS Console
 
@@ -199,6 +203,7 @@ The default state machine is `aws-local-sandbox-stepfunctions-two-lambdas` unles
 - AWS, Amplify, and Floci access belongs under `gui/src/aws/`.
 - Shared endpoint, region, and dummy credential configuration belongs in `gui/src/aws/config.ts`.
 - Service-specific modules should expose small functions such as `listQueues`, `createQueue`, `deleteQueue`, or `scanTable`.
+- Local-only diagnostics that require host or Docker access should go through a backend service such as `debug-api`; Vue components should call a stable GUI service module instead of depending on Docker or a specific log provider directly.
 - Keep destructive actions behind confirmation dialogs.
 - Do not introduce real AWS account dependencies.
 

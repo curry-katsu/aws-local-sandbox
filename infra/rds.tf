@@ -13,6 +13,10 @@ resource "aws_rds_cluster" "aurora_postgres_demo" {
   }
 
   lifecycle {
-    ignore_changes = [engine_mode]
+    ignore_changes = [
+      engine_mode,
+      tags,
+      tags_all,
+    ]
   }
 }
