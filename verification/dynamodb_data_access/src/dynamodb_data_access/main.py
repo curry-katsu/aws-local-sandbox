@@ -12,7 +12,12 @@ from typing import Any
 from botocore.exceptions import BotoCoreError, ClientError
 
 from dynamodb_data_access.dynamodb import DynamoDbClient
-from dynamodb_data_access.sandbox_table_dao import DeviceType, SandboxRecord, SandboxTableDao
+from dynamodb_data_access.sandbox_table_dao import (
+    DeviceType,
+    SandboxRecord,
+    SandboxRecordUpdate,
+    SandboxTableDao,
+)
 
 DEFAULT_ENDPOINT_URL = "http://localhost:4566"
 DEFAULT_REGION = "us-east-1"
@@ -120,6 +125,35 @@ def run_single_item_sample(dao: SandboxTableDao, run_id: str) -> dict[str, Any]:
     }
 
 
+def run_batch_update_sample(
+    dao: SandboxTableDao,
+    records: list[SandboxRecord],
+) -> dict[str, Any]:
+    updated_at = utc_now()
+    updates = [
+        SandboxRecordUpdate(
+            pk=record.pk,
+            sk=record.sk,
+            set_values={
+                "status": "BATCH_UPDATED",
+                "updated_at": updated_at,
+                "message": f"{record.message} batch-updated",
+            },
+            add_values={"attempt_count": 1},
+        )
+        for record in records[:2]
+    ]
+    updated_items = dao.update_items(updates)
+
+    return {
+        "update_count": len(updates),
+        "updated_items": updated_items,
+        "passed": len(updated_items) == len(updates)
+        and all(item.status == "BATCH_UPDATED" for item in updated_items)
+        and all(item.attempt_count == 1 for item in updated_items),
+    }
+
+
 def run_verification(settings: Settings) -> dict[str, Any]:
     client = DynamoDbClient(
         endpoint_url=settings.endpoint_url,
@@ -133,6 +167,7 @@ def run_verification(settings: Settings) -> dict[str, Any]:
     single_item_sample = run_single_item_sample(dao, run_id)
 
     dao.batch_put(records)
+    batch_update_sample = run_batch_update_sample(dao, records)
 
     first = records[0]
     fetched = dao.get(first.pk, first.sk)
@@ -143,6 +178,7 @@ def run_verification(settings: Settings) -> dict[str, Any]:
         updated_at=utc_now(),
     )
     queried = dao.list_by_pk(first.pk)
+    queried_from_dict_condition = dao.list_by_pk_from_dict_condition(first.pk)
     done_items = dao.scan_by_status("DONE", limit=25)
     fetched_device_type_is_enum = isinstance(fetched.device_type, DeviceType) if fetched else False
     updated_device_type_is_enum = isinstance(updated.device_type, DeviceType)
@@ -167,9 +203,12 @@ def run_verification(settings: Settings) -> dict[str, Any]:
         "operations": {
             "single_item_sample": single_item_sample,
             "batch_put_count": len(records),
+            "batch_update_sample": batch_update_sample,
             "get_item": fetched,
             "update_item": updated,
             "query_count": len(queried),
+            "dict_condition_query_count": len(queried_from_dict_condition),
+            "dict_condition_query_passed": len(queried_from_dict_condition) == len(queried),
             "scan_done_count": len(done_items),
             "enum_conversion": {
                 "stored_value": first.device_type.value,

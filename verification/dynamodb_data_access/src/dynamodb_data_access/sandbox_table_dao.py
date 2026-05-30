@@ -41,6 +41,15 @@ class SandboxRecord:
         return item
 
 
+@dataclass(frozen=True)
+class SandboxRecordUpdate:
+    pk: str
+    sk: str
+    set_values: dict[str, Any] | None = None
+    add_values: dict[str, Any] | None = None
+    remove_fields: list[str] | None = None
+
+
 class SandboxTableDao(BaseDynamoDao[SandboxRecord]):
     def __init__(self, client: AbstractDynamoDbClient, table_name: str) -> None:
         super().__init__(client)
@@ -92,9 +101,34 @@ class SandboxTableDao(BaseDynamoDao[SandboxRecord]):
             add_values={"attempt_count": 1},
         )
 
+    def update_items(self, updates: list[SandboxRecordUpdate]) -> list[SandboxRecord]:
+        return [
+            self.update_item(
+                pk=update.pk,
+                sk=update.sk,
+                set_values=update.set_values,
+                add_values=update.add_values,
+                remove_fields=update.remove_fields,
+            )
+            for update in updates
+        ]
+
     def list_by_pk(self, pk: str, limit: int | None = None) -> list[SandboxRecord]:
         items = self._query_raw(
             key_condition_expression=Key("pk").eq(pk),
+            limit=limit,
+            scan_index_forward=True,
+            consistent_read=True,
+        )
+        return [SandboxRecord.from_item(item) for item in items]
+
+    def list_by_pk_from_dict_condition(
+        self,
+        pk: str,
+        limit: int | None = None,
+    ) -> list[SandboxRecord]:
+        items = self._query_raw(
+            key_condition_expression={"pk": pk},
             limit=limit,
             scan_index_forward=True,
             consistent_read=True,

@@ -1,5 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from collections.abc import Mapping
+from typing import Any, Generic, TypeAlias, TypeVar
+
+from boto3.dynamodb.conditions import ConditionBase
+
+DynamoItemKey: TypeAlias = Mapping[str, Any]
+DynamoKeyCondition: TypeAlias = ConditionBase | Mapping[str, Any]
 
 
 class AbstractDynamoDbClient(ABC):
@@ -11,7 +17,7 @@ class AbstractDynamoDbClient(ABC):
     def get_item(
         self,
         table_name: str,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         consistent_read: bool | None = None,
     ) -> dict[str, Any] | None:
         raise NotImplementedError
@@ -20,7 +26,7 @@ class AbstractDynamoDbClient(ABC):
     def update_item(
         self,
         table_name: str,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         update_expression: str,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
@@ -33,7 +39,7 @@ class AbstractDynamoDbClient(ABC):
     def delete_item(
         self,
         table_name: str,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         condition_expression: str | None = None,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
@@ -45,7 +51,7 @@ class AbstractDynamoDbClient(ABC):
     def query(
         self,
         table_name: str,
-        key_condition_expression: Any,
+        key_condition_expression: DynamoKeyCondition,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
         index_name: str | None = None,
@@ -87,7 +93,7 @@ class BaseDynamoDao(Generic[DataT]):
 
     def _get_raw(
         self,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         consistent_read: bool | None = None,
     ) -> dict[str, Any] | None:
         return self.client.get_item(
@@ -104,7 +110,7 @@ class BaseDynamoDao(Generic[DataT]):
 
     def _update_raw(
         self,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         update_expression: str,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
@@ -131,7 +137,7 @@ class BaseDynamoDao(Generic[DataT]):
 
     def _update_attributes_raw(
         self,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         set_values: dict[str, Any] | None = None,
         add_values: dict[str, Any] | None = None,
         remove_fields: list[str] | None = None,
@@ -188,7 +194,7 @@ class BaseDynamoDao(Generic[DataT]):
 
     def _delete_raw(
         self,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         condition_expression: str | None = None,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
@@ -205,7 +211,7 @@ class BaseDynamoDao(Generic[DataT]):
 
     def _query_raw(
         self,
-        key_condition_expression: Any,
+        key_condition_expression: DynamoKeyCondition,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
         index_name: str | None = None,

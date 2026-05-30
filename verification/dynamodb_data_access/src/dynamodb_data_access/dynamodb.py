@@ -1,9 +1,15 @@
+from collections.abc import Mapping
 from typing import Any
 
 import boto3
+from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 
-from dynamodb_data_access.base_dynamo_dao import AbstractDynamoDbClient
+from dynamodb_data_access.base_dynamo_dao import (
+    AbstractDynamoDbClient,
+    DynamoItemKey,
+    DynamoKeyCondition,
+)
 
 
 class DynamoDbClient(AbstractDynamoDbClient):
@@ -31,7 +37,7 @@ class DynamoDbClient(AbstractDynamoDbClient):
     def get_item(
         self,
         table_name: str,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         consistent_read: bool | None = None,
     ) -> dict[str, Any] | None:
         table = self._resource.Table(table_name)
@@ -46,7 +52,7 @@ class DynamoDbClient(AbstractDynamoDbClient):
     def update_item(
         self,
         table_name: str,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         update_expression: str,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
@@ -71,7 +77,7 @@ class DynamoDbClient(AbstractDynamoDbClient):
     def delete_item(
         self,
         table_name: str,
-        key: dict[str, Any],
+        key: DynamoItemKey,
         condition_expression: str | None = None,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
@@ -93,7 +99,7 @@ class DynamoDbClient(AbstractDynamoDbClient):
     def query(
         self,
         table_name: str,
-        key_condition_expression: Any,
+        key_condition_expression: DynamoKeyCondition,
         expression_attribute_values: dict[str, Any] | None = None,
         expression_attribute_names: dict[str, str] | None = None,
         index_name: str | None = None,
@@ -104,7 +110,7 @@ class DynamoDbClient(AbstractDynamoDbClient):
     ) -> list[dict[str, Any]]:
         table = self._resource.Table(table_name)
         params: dict[str, Any] = {
-            "KeyConditionExpression": key_condition_expression,
+            "KeyConditionExpression": self._normalize_key_condition(key_condition_expression),
         }
         if expression_attribute_values:
             params["ExpressionAttributeValues"] = expression_attribute_values
@@ -123,6 +129,20 @@ class DynamoDbClient(AbstractDynamoDbClient):
 
         response = table.query(**params)
         return list(response.get("Items", []))
+
+    def _normalize_key_condition(self, value: DynamoKeyCondition) -> Any:
+        if not isinstance(value, Mapping):
+            return value
+
+        expression = None
+        for field_name, field_value in value.items():
+            condition = Key(field_name).eq(field_value)
+            expression = condition if expression is None else expression & condition
+
+        if expression is None:
+            raise ValueError("key_condition_expression mapping must not be empty.")
+
+        return expression
 
     def scan(
         self,
