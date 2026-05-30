@@ -10,6 +10,7 @@ AWS_LOCAL_ENV = AWS_ENDPOINT_URL=$(AWS_ENDPOINT_URL) AWS_DEFAULT_REGION=$(AWS_DE
 SQS_QUEUE_NAME ?= aws-local-sandbox-queue
 SQS_QUEUE_URL ?= $(AWS_ENDPOINT_URL)/000000000000/$(SQS_QUEUE_NAME)
 DYNAMODB_TABLE_NAME ?= aws-local-sandbox-table
+DYNAMODB_INDEX_TTL_TABLE_NAME ?= aws-local-sandbox-index-ttl-table
 S3_BUCKET_NAME ?= aws-local-sandbox-bucket
 S3_LOG_PREFIX ?= verification-logs
 VERIFY_MESSAGE_BODY ?= {"source":"make","message":"hello from aws-local-sandbox"}
@@ -25,7 +26,7 @@ RDS_DB_PASSWORD ?= Sandbox123
 RDS_DB_HOST ?= localhost
 RDS_DB_PORT ?= 7001
 
-.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-sns-topics verify-sns-subscriptions verify-sns-publish verify-sns-receive-primary verify-sns-receive-secondary verify-sns-fanout verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint verify-rds-install verify-rds-run verify-rds-format verify-rds-lint verify-eventbridge-rule verify-eventbridge-targets verify-eventbridge-invoke-lambda verify-stepfunctions-state-machine verify-stepfunctions-start-execution verify-stepfunctions-execution-history fmt clean
+.PHONY: help up down logs ps infra-init infra-plan infra-apply infra-destroy gui-install gui-dev smoke verify-install verify-send-message verify-run verify-dynamodb-install verify-dynamodb-run verify-dynamodb-index-ttl-run verify-dynamodb-format verify-dynamodb-lint verify-dynamodb-scan verify-s3-ls verify-s3-cat verify-format verify-lint verify-sns-topics verify-sns-subscriptions verify-sns-publish verify-sns-receive-primary verify-sns-receive-secondary verify-sns-fanout verify-cognito-install verify-cognito-create-user verify-cognito-login-jwt verify-cognito-format verify-cognito-lint verify-rds-install verify-rds-run verify-rds-format verify-rds-lint verify-eventbridge-rule verify-eventbridge-targets verify-eventbridge-invoke-lambda verify-stepfunctions-state-machine verify-stepfunctions-start-execution verify-stepfunctions-execution-history fmt clean
 
 help:
 	@printf '%s\n' \
@@ -43,6 +44,11 @@ help:
 		'  make verify-install Install verification tool dependencies' \
 		'  make verify-send-message Send a sample message to the verification SQS queue' \
 		'  make verify-run    Run SQS -> DynamoDB -> S3 log verification tool' \
+		'  make verify-dynamodb-install Install DynamoDB data access verification dependencies' \
+		'  make verify-dynamodb-run Run DynamoDB data access verification tool' \
+		'  make verify-dynamodb-index-ttl-run Verify DynamoDB LSI, GSI, sparse GSI, and TTL behavior' \
+		'  make verify-dynamodb-format Format DynamoDB data access verification code' \
+		'  make verify-dynamodb-lint Lint DynamoDB data access verification code' \
 		'  make verify-dynamodb-scan Scan verification DynamoDB table items' \
 		'  make verify-s3-ls   List verification log files in S3' \
 		'  make verify-s3-cat FILE=<key> Print an S3 object body' \
@@ -113,6 +119,24 @@ verify-send-message:
 
 verify-run:
 	cd verification/sqs_to_dynamodb_s3_log && $(AWS_LOCAL_ENV) poetry run sqs-ddb-s3-verify
+
+verify-dynamodb-install:
+	cd verification/dynamodb_data_access && poetry install
+
+verify-dynamodb-run:
+	cd verification/dynamodb_data_access && $(AWS_LOCAL_ENV) poetry run dynamodb-data-access-verify
+
+verify-dynamodb-index-ttl-run:
+	cd verification/dynamodb_data_access && $(AWS_LOCAL_ENV) DYNAMODB_INDEX_TTL_TABLE_NAME="$(DYNAMODB_INDEX_TTL_TABLE_NAME)" poetry run dynamodb-index-ttl-verify
+
+verify-dynamodb-format:
+	cd verification/dynamodb_data_access && poetry run isort .
+	cd verification/dynamodb_data_access && poetry run black .
+
+verify-dynamodb-lint:
+	cd verification/dynamodb_data_access && poetry run isort --check-only .
+	cd verification/dynamodb_data_access && poetry run black --check .
+	cd verification/dynamodb_data_access && poetry run flake8 .
 
 verify-dynamodb-scan:
 	$(AWS_LOCAL_ENV) aws dynamodb scan --endpoint-url $(AWS_ENDPOINT_URL) --table-name $(DYNAMODB_TABLE_NAME)

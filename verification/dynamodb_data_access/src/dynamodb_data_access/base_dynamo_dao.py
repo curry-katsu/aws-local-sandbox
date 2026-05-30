@@ -1,0 +1,254 @@
+from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from typing import Any, Generic, TypeAlias, TypeVar
+
+from boto3.dynamodb.conditions import ConditionBase
+
+DynamoItemKey: TypeAlias = Mapping[str, Any]
+DynamoKeyCondition: TypeAlias = ConditionBase | Mapping[str, Any]
+
+
+class AbstractDynamoDbClient(ABC):
+    @abstractmethod
+    def put_item(self, table_name: str, item: dict[str, Any]) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_item(
+        self,
+        table_name: str,
+        key: DynamoItemKey,
+        consistent_read: bool | None = None,
+    ) -> dict[str, Any] | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_item(
+        self,
+        table_name: str,
+        key: DynamoItemKey,
+        update_expression: str,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        condition_expression: str | None = None,
+        return_values: str = "ALL_NEW",
+    ) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_item(
+        self,
+        table_name: str,
+        key: DynamoItemKey,
+        condition_expression: str | None = None,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        return_values: str | None = None,
+    ) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def query(
+        self,
+        table_name: str,
+        key_condition_expression: DynamoKeyCondition,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        index_name: str | None = None,
+        filter_expression: Any | None = None,
+        limit: int | None = None,
+        scan_index_forward: bool | None = None,
+        consistent_read: bool | None = None,
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def scan(
+        self,
+        table_name: str,
+        filter_expression: Any | None = None,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def batch_write_items(
+        self,
+        table_name: str,
+        items: list[dict[str, Any]],
+    ) -> None:
+        raise NotImplementedError
+
+
+DataT = TypeVar("DataT")
+
+
+class BaseDynamoDao(Generic[DataT]):
+    table_name: str
+
+    def __init__(self, client: AbstractDynamoDbClient) -> None:
+        self.client = client
+
+    def _get_raw(
+        self,
+        key: DynamoItemKey,
+        consistent_read: bool | None = None,
+    ) -> dict[str, Any] | None:
+        return self.client.get_item(
+            table_name=self.table_name,
+            key=key,
+            consistent_read=consistent_read,
+        )
+
+    def _put_raw(self, item: dict[str, Any]) -> None:
+        self.client.put_item(
+            table_name=self.table_name,
+            item=item,
+        )
+
+    def _update_raw(
+        self,
+        key: DynamoItemKey,
+        update_expression: str,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        condition_expression: str | None = None,
+        return_values: str = "ALL_NEW",
+    ) -> dict[str, Any]:
+        response = self.client.update_item(
+            table_name=self.table_name,
+            key=key,
+            update_expression=update_expression,
+            expression_attribute_values=expression_attribute_values,
+            expression_attribute_names=expression_attribute_names,
+            condition_expression=condition_expression,
+            return_values=return_values,
+        )
+        attributes = response.get("Attributes")
+        if isinstance(attributes, dict):
+            return attributes
+
+        raise RuntimeError(
+            f"UpdateItem did not return attributes: table={self.table_name}, key={key}, "
+            f"return_values={return_values}"
+        )
+
+    def _update_attributes_raw(
+        self,
+        key: DynamoItemKey,
+        set_values: dict[str, Any] | None = None,
+        add_values: dict[str, Any] | None = None,
+        remove_fields: list[str] | None = None,
+        condition_expression: str | None = None,
+        return_values: str = "ALL_NEW",
+    ) -> dict[str, Any]:
+        set_values = set_values or {}
+        add_values = add_values or {}
+        remove_fields = remove_fields or []
+
+        if not set_values and not add_values and not remove_fields:
+            raise ValueError("At least one update operation is required.")
+
+        expression_parts: list[str] = []
+        expression_attribute_names: dict[str, str] = {}
+        expression_attribute_values: dict[str, Any] = {}
+
+        if set_values:
+            set_expressions = []
+            for index, (field_name, value) in enumerate(set_values.items()):
+                name_token = f"#set_name_{index}"
+                value_token = f":set_value_{index}"
+                expression_attribute_names[name_token] = field_name
+                expression_attribute_values[value_token] = value
+                set_expressions.append(f"{name_token} = {value_token}")
+            expression_parts.append(f"SET {', '.join(set_expressions)}")
+
+        if add_values:
+            add_expressions = []
+            for index, (field_name, value) in enumerate(add_values.items()):
+                name_token = f"#add_name_{index}"
+                value_token = f":add_value_{index}"
+                expression_attribute_names[name_token] = field_name
+                expression_attribute_values[value_token] = value
+                add_expressions.append(f"{name_token} {value_token}")
+            expression_parts.append(f"ADD {', '.join(add_expressions)}")
+
+        if remove_fields:
+            remove_expressions = []
+            for index, field_name in enumerate(remove_fields):
+                name_token = f"#remove_name_{index}"
+                expression_attribute_names[name_token] = field_name
+                remove_expressions.append(name_token)
+            expression_parts.append(f"REMOVE {', '.join(remove_expressions)}")
+
+        return self._update_raw(
+            key=key,
+            update_expression=" ".join(expression_parts),
+            expression_attribute_names=expression_attribute_names,
+            expression_attribute_values=expression_attribute_values,
+            condition_expression=condition_expression,
+            return_values=return_values,
+        )
+
+    def _delete_raw(
+        self,
+        key: DynamoItemKey,
+        condition_expression: str | None = None,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        return_values: str | None = None,
+    ) -> dict[str, Any]:
+        return self.client.delete_item(
+            table_name=self.table_name,
+            key=key,
+            condition_expression=condition_expression,
+            expression_attribute_values=expression_attribute_values,
+            expression_attribute_names=expression_attribute_names,
+            return_values=return_values,
+        )
+
+    def _query_raw(
+        self,
+        key_condition_expression: DynamoKeyCondition,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        index_name: str | None = None,
+        filter_expression: Any | None = None,
+        scan_index_forward: bool | None = None,
+        consistent_read: bool | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return self.client.query(
+            table_name=self.table_name,
+            key_condition_expression=key_condition_expression,
+            expression_attribute_values=expression_attribute_values,
+            expression_attribute_names=expression_attribute_names,
+            index_name=index_name,
+            filter_expression=filter_expression,
+            scan_index_forward=scan_index_forward,
+            consistent_read=consistent_read,
+            limit=limit,
+        )
+
+    def _scan_raw(
+        self,
+        filter_expression: Any | None = None,
+        expression_attribute_values: dict[str, Any] | None = None,
+        expression_attribute_names: dict[str, str] | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return self.client.scan(
+            table_name=self.table_name,
+            filter_expression=filter_expression,
+            expression_attribute_values=expression_attribute_values,
+            expression_attribute_names=expression_attribute_names,
+            limit=limit,
+        )
+
+    def _batch_put_raw(self, items: list[dict[str, Any]]) -> None:
+        self.client.batch_write_items(
+            table_name=self.table_name,
+            items=items,
+        )
