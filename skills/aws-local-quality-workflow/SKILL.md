@@ -47,8 +47,9 @@ Use this skill to keep changes in `aws-local-sandbox` small, local-only, and ver
 - Route-level orchestration belongs in `gui/src/views/`; reusable UI belongs in `gui/src/components/`.
 - Keep destructive GUI actions behind confirmation dialogs.
 - Validate with `cd gui && npm run build` when GUI code changes.
-- When GUI test code exists or a test script has been added to `gui/package.json`, also run the smallest relevant GUI test command with coverage enabled.
-- Prefer a GUI test script that emits HTML coverage to `gui/coverage/`, for example `cd gui && npm run test -- --coverage` when the test runner supports it.
+- After any GUI code change, run `cd gui && npm test` to verify service-layer and component unit tests pass. This is mandatory, not optional.
+- If the change affects screen routing, navigation, or page-level rendering, also run `cd gui && npm run test:e2e` to confirm the Playwright smoke tests pass.
+- Coverage is emitted to `gui/coverage/` when running `cd gui && npm run test:coverage`.
 
 ### Shared Libraries
 
@@ -83,7 +84,9 @@ Choose the smallest command that proves the changed behavior:
 - Terraform formatting only: `terraform fmt`
 - Terraform provisioning behavior: `make infra-plan`
 - GUI code or build behavior: `cd gui && npm run build`
-- GUI tests, when `gui/package.json` defines them: run the test script with coverage enabled and write HTML coverage to `gui/coverage/`
+- GUI service-layer or component logic: `cd gui && npm test` (Vitest, unit + component tests)
+- GUI routing or screen rendering: `cd gui && npm run test:e2e` (Playwright smoke tests, requires dev server)
+- GUI coverage report: `cd gui && npm run test:coverage`
 - Python library behavior: `cd libs/aws-boto-utils && poetry run pytest`
 - End-to-end local AWS smoke: `make smoke`
 - SQS/DynamoDB/S3 workflow: `make verify-install`, `make verify-send-message`, then `make verify-run`

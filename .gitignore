@@ -15,6 +15,8 @@ coverage/
 htmlcov/
 coverage.xml
 gui/coverage/
+gui/playwright-report/
+gui/test-results/
 libs/**/coverage/
 libs/**/htmlcov/
 verification/**/logs/
