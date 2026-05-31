@@ -121,6 +121,21 @@ describe('sqs service', () => {
     })
   })
 
+  describe('getQueueAttributes', () => {
+    it('returns attributes for the given queue URL', async () => {
+      const attrs = { VisibilityTimeout: '30', ApproximateNumberOfMessages: '5' }
+      mockSend.mockResolvedValueOnce({ Attributes: attrs })
+      const { getQueueAttributes } = await import('../sqs')
+      expect(await getQueueAttributes('http://q-url')).toEqual(attrs)
+    })
+
+    it('returns empty object when Attributes is undefined', async () => {
+      mockSend.mockResolvedValueOnce({})
+      const { getQueueAttributes } = await import('../sqs')
+      expect(await getQueueAttributes('http://q-url')).toEqual({})
+    })
+  })
+
   describe('setQueueAttributes', () => {
     it('filters out attributes with empty string values', async () => {
       mockSend.mockResolvedValueOnce({})

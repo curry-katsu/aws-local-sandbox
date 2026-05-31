@@ -23,11 +23,14 @@ vi.mock('../config', () => ({
 
 import {
   buildDynamoKey,
+  createTable,
+  deleteTableItem,
   describeTable,
   fromDynamoItem,
   listTables,
   putTableItem,
   queryTable,
+  scanAllTableItems,
   scanTable,
   toDynamoItem,
 } from '../dynamodb'
@@ -62,6 +65,42 @@ describe('DynamoDB service', () => {
     })
   })
 
+  describe('createTable', () => {
+    beforeEach(() => mockSend.mockReset())
+
+    it('creates a table with partition key only', async () => {
+      mockSend.mockResolvedValueOnce({})
+      await createTable({
+        tableName: 'new-table',
+        partitionKeyName: 'id',
+        partitionKeyType: 'S',
+        readCapacityUnits: 5,
+        writeCapacityUnits: 5,
+      })
+      expect(mockSend).toHaveBeenCalledOnce()
+    })
+
+    it('creates a table with partition key and sort key', async () => {
+      mockSend.mockResolvedValueOnce({})
+      await createTable({
+        tableName: 'new-table',
+        partitionKeyName: 'pk',
+        partitionKeyType: 'S',
+        sortKeyName: 'sk',
+        sortKeyType: 'N',
+        readCapacityUnits: 10,
+        writeCapacityUnits: 10,
+      })
+      expect(mockSend).toHaveBeenCalledOnce()
+    })
+
+    it('defaults capacity units to 5 when not provided', async () => {
+      mockSend.mockResolvedValueOnce({})
+      await createTable({ tableName: 'new-table', partitionKeyName: 'id', partitionKeyType: 'S' })
+      expect(mockSend).toHaveBeenCalledOnce()
+    })
+  })
+
   describe('scanTable', () => {
     beforeEach(() => mockSend.mockReset())
 
@@ -76,9 +115,20 @@ describe('DynamoDB service', () => {
       expect(await scanTable('my-table', 10)).toEqual([])
     })
 
-    it('applies filter expression when filter has attributeName and value', async () => {
+    it('applies equality filter expression', async () => {
       mockSend.mockResolvedValueOnce({ Items: [] })
       await scanTable('my-table', 10, { attributeName: 'status', value: 'active', attributeType: 'S', operator: '=' })
+      expect(mockSend).toHaveBeenCalledOnce()
+    })
+
+    it('applies contains filter expression', async () => {
+      mockSend.mockResolvedValueOnce({ Items: [] })
+      await scanTable('my-table', 10, {
+        attributeName: 'name',
+        value: 'test',
+        attributeType: 'S',
+        operator: 'contains',
+      })
       expect(mockSend).toHaveBeenCalledOnce()
     })
 
@@ -86,6 +136,17 @@ describe('DynamoDB service', () => {
       mockSend.mockResolvedValueOnce({ Items: [] })
       await scanTable('my-table', 10, { attributeName: 'status', value: '', attributeType: 'S' })
       expect(mockSend).toHaveBeenCalledOnce()
+    })
+
+    it('throws when filter value cannot be parsed as a number for N type', async () => {
+      await expect(
+        scanTable('my-table', 10, {
+          attributeName: 'count',
+          value: 'not-a-number',
+          attributeType: 'N',
+          operator: '=',
+        }),
+      ).rejects.toThrow('must be a number')
     })
   })
 
@@ -129,6 +190,49 @@ describe('DynamoDB service', () => {
         10,
       )
       expect(result).toEqual([{ pk: { S: 'abc' }, sk: { N: '1' } }])
+    })
+  })
+
+  describe('scanAllTableItems', () => {
+    beforeEach(() => mockSend.mockReset())
+
+    it('returns all items from a single page', async () => {
+      const items = [{ id: { S: 'a' } }, { id: { S: 'b' } }]
+      mockSend.mockResolvedValueOnce({ Items: items, LastEvaluatedKey: undefined })
+      expect(await scanAllTableItems('my-table')).toEqual(items)
+      expect(mockSend).toHaveBeenCalledOnce()
+    })
+
+    it('paginates until LastEvaluatedKey is undefined', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Items: [{ id: { S: 'a' } }], LastEvaluatedKey: { id: { S: 'a' } } })
+        .mockResolvedValueOnce({ Items: [{ id: { S: 'b' } }], LastEvaluatedKey: undefined })
+      const result = await scanAllTableItems('my-table')
+      expect(result).toHaveLength(2)
+      expect(mockSend).toHaveBeenCalledTimes(2)
+    })
+
+    it('returns empty array when the table has no items', async () => {
+      mockSend.mockResolvedValueOnce({ Items: undefined, LastEvaluatedKey: undefined })
+      expect(await scanAllTableItems('my-table')).toEqual([])
+    })
+  })
+
+  describe('deleteTableItem', () => {
+    beforeEach(() => mockSend.mockReset())
+
+    it('calls send once with the correct key extracted from the item', async () => {
+      mockSend.mockResolvedValueOnce({})
+      const item = { id: { S: 'abc' }, name: { S: 'foo' } }
+      const schema = [{ AttributeName: 'id', KeyType: 'HASH' }]
+      await deleteTableItem('my-table', item, schema)
+      expect(mockSend).toHaveBeenCalledOnce()
+    })
+
+    it('throws when the item is missing a key attribute', async () => {
+      const item = { name: { S: 'foo' } }
+      const schema = [{ AttributeName: 'id', KeyType: 'HASH' }]
+      await expect(deleteTableItem('my-table', item, schema)).rejects.toThrow('id')
     })
   })
 
@@ -231,6 +335,24 @@ describe('DynamoDB service', () => {
       expect(fromDynamoItem({ meta: { M: { count: { N: '5' } } } })).toEqual({
         meta: { count: 5 },
       })
+    })
+
+    it('converts SS type to string array', () => {
+      expect(fromDynamoItem({ tags: { SS: ['a', 'b', 'c'] } })).toEqual({ tags: ['a', 'b', 'c'] })
+    })
+
+    it('converts NS type to number array', () => {
+      expect(fromDynamoItem({ counts: { NS: ['1', '2', '3'] } })).toEqual({ counts: [1, 2, 3] })
+    })
+
+    it('converts BS type to binary array as-is', () => {
+      const data = [new Uint8Array([1, 2, 3])]
+      expect(fromDynamoItem({ bin: { BS: data } })).toEqual({ bin: data })
+    })
+
+    it('returns unrecognized DynamoDB type value as-is', () => {
+      const unknown = { CUSTOM: 'value' }
+      expect(fromDynamoItem({ field: unknown })).toEqual({ field: unknown })
     })
 
     it('handles null input gracefully', () => {
