@@ -10,10 +10,10 @@ from decimal import Decimal
 from typing import Any
 
 import boto3
+from aws_boto_utils.services import DynamoDbClient
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-from dynamodb_data_access.dynamodb import DynamoDbClient
 from dynamodb_data_access.index_ttl_table_dao import (
     GSI_NAME,
     LSI_NAME,

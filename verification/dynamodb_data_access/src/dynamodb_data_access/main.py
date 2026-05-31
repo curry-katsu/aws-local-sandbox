@@ -9,9 +9,9 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
+from aws_boto_utils.services import DynamoDbClient
 from botocore.exceptions import BotoCoreError, ClientError
 
-from dynamodb_data_access.dynamodb import DynamoDbClient
 from dynamodb_data_access.sandbox_table_dao import (
     DeviceType,
     SandboxRecord,

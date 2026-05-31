@@ -5,15 +5,18 @@ description = "Verification tool for creating a Cognito user in Floci."
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
 authors = [{ name = "aws-local-sandbox contributors" }]
-dependencies = [
-  "boto3>=1.35.0,<2.0.0",
-]
+dynamic = ["dependencies"]
 
 [project.scripts]
 cognito-user-create-verify = "cognito_user_create.main:main"
 
 [tool.poetry]
 packages = [{ include = "cognito_user_create", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+boto3 = ">=1.35.0,<2.0.0"
+aws-boto-utils = { path = "../../libs/aws-boto-utils", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

@@ -5,15 +5,18 @@ description = "Verification tool for reading Floci SQS messages, writing them to
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
 authors = [{ name = "aws-local-sandbox contributors" }]
-dependencies = [
-  "boto3>=1.35.0,<2.0.0",
-]
+dynamic = ["dependencies"]
 
 [project.scripts]
 sqs-ddb-s3-verify = "sqs_to_dynamodb_s3_log.main:main"
 
 [tool.poetry]
 packages = [{ include = "sqs_to_dynamodb_s3_log", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+boto3 = ">=1.35.0,<2.0.0"
+aws-boto-utils = { path = "../../libs/aws-boto-utils", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
