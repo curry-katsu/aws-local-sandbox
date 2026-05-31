@@ -4,9 +4,8 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Any
 
+from aws_boto_utils.services import AbstractDynamoDbClient, BaseDynamoDao
 from boto3.dynamodb.conditions import Attr, Key
-
-from dynamodb_data_access.base_dynamo_dao import AbstractDynamoDbClient, BaseDynamoDao
 
 LSI_NAME = "lsi-by-lsi-sk"
 GSI_NAME = "gsi-by-gsi-pk-sk"

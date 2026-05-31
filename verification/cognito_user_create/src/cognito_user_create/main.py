@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import boto3
-from botocore.config import Config
-from botocore.exceptions import BotoCoreError, ClientError
+from aws_boto_utils import AwsClientConfig
+from aws_boto_utils.exceptions import AwsServiceError
+from aws_boto_utils.services import CognitoUserPoolAdmin
 
 DEFAULT_ENDPOINT_URL = "http://localhost:4566"
 DEFAULT_REGION = "us-east-1"
@@ -70,81 +70,57 @@ def load_settings() -> Settings:
     )
 
 
-def cognito_client(settings: Settings) -> Any:
-    return boto3.client(
-        "cognito-idp",
+def aws_config(settings: Settings) -> AwsClientConfig:
+    return AwsClientConfig(
         endpoint_url=settings.endpoint_url,
         region_name=settings.region,
         aws_access_key_id=settings.access_key_id,
         aws_secret_access_key=settings.secret_access_key,
-        config=Config(retries={"max_attempts": 3, "mode": "standard"}),
     )
 
 
-def find_user_pool_id(cognito: Any, settings: Settings) -> str:
+def find_user_pool_id(cognito: CognitoUserPoolAdmin, settings: Settings) -> str:
     if settings.user_pool_id:
         return settings.user_pool_id
 
-    next_token = None
-
-    while True:
-        request: dict[str, Any] = {"MaxResults": 60}
-        if next_token:
-            request["NextToken"] = next_token
-
-        response = cognito.list_user_pools(**request)
-
-        for user_pool in response.get("UserPools", []):
-            if user_pool.get("Name") == settings.user_pool_name:
-                user_pool_id = user_pool.get("Id")
-                if user_pool_id:
-                    return user_pool_id
-
-        next_token = response.get("NextToken")
-        if not next_token:
-            break
-
-    raise ValueError(
-        "Cognito User Pool was not found. "
-        "Run make infra-apply or set COGNITO_USER_POOL_ID explicitly."
-    )
-
-
-def create_user(cognito: Any, settings: Settings, user_pool_id: str) -> tuple[dict[str, Any], bool]:
     try:
-        response = cognito.admin_create_user(
-            UserPoolId=user_pool_id,
-            Username=settings.username,
-            UserAttributes=[
-                {"Name": "email", "Value": settings.email},
-                {"Name": "email_verified", "Value": "true"},
-            ],
-            TemporaryPassword=settings.temporary_password,
-            MessageAction="SUPPRESS",
-        )
-    except ClientError as exc:
-        error_code = exc.response.get("Error", {}).get("Code")
-        if error_code == "UsernameExistsException":
-            return get_user(cognito, settings, user_pool_id), True
-        raise
-
-    return response["User"], False
+        return cognito.find_user_pool_id(settings.user_pool_name)
+    except AwsServiceError as error:
+        raise ValueError(
+            "Cognito User Pool was not found. "
+            "Run make infra-apply or set COGNITO_USER_POOL_ID explicitly."
+        ) from error
 
 
-def set_permanent_password(cognito: Any, settings: Settings, user_pool_id: str) -> None:
+def create_user(
+    cognito: CognitoUserPoolAdmin, settings: Settings, user_pool_id: str
+) -> tuple[dict[str, Any], bool]:
+    return cognito.admin_create_user_if_missing(
+        user_pool_id=user_pool_id,
+        username=settings.username,
+        user_attributes={
+            "email": settings.email,
+            "email_verified": "true",
+        },
+        temporary_password=settings.temporary_password,
+    )
+
+
+def set_permanent_password(
+    cognito: CognitoUserPoolAdmin, settings: Settings, user_pool_id: str
+) -> None:
     cognito.admin_set_user_password(
-        UserPoolId=user_pool_id,
-        Username=settings.username,
-        Password=settings.permanent_password,
-        Permanent=True,
+        user_pool_id=user_pool_id,
+        username=settings.username,
+        password=settings.permanent_password,
+        permanent=True,
     )
 
 
-def get_user(cognito: Any, settings: Settings, user_pool_id: str) -> dict[str, Any]:
-    return cognito.admin_get_user(
-        UserPoolId=user_pool_id,
-        Username=settings.username,
-    )
+def get_user(
+    cognito: CognitoUserPoolAdmin, settings: Settings, user_pool_id: str
+) -> dict[str, Any]:
+    return cognito.admin_get_user(user_pool_id=user_pool_id, username=settings.username)
 
 
 def simplify_user(user: dict[str, Any]) -> dict[str, Any]:
@@ -164,7 +140,7 @@ def simplify_user(user: dict[str, Any]) -> dict[str, Any]:
 
 def run() -> dict[str, Any]:
     settings = load_settings()
-    cognito = cognito_client(settings)
+    cognito = CognitoUserPoolAdmin.from_config(aws_config(settings))
     started_at = utc_now()
     started = time.perf_counter()
 
@@ -176,7 +152,7 @@ def run() -> dict[str, Any]:
             set_permanent_password(cognito, settings, user_pool_id)
 
         verified_user = get_user(cognito, settings, user_pool_id)
-    except (BotoCoreError, ClientError, ValueError, KeyError) as exc:
+    except (AwsServiceError, ValueError, KeyError) as exc:
         finished_at = utc_now()
         return {
             "status": "failed",

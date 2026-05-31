@@ -5,9 +5,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
+from aws_boto_utils.services import AbstractDynamoDbClient, BaseDynamoDao
 from boto3.dynamodb.conditions import Attr, Key
-
-from dynamodb_data_access.base_dynamo_dao import AbstractDynamoDbClient, BaseDynamoDao
 
 
 class DeviceType(Enum):

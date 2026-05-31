@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import boto3
+from aws_boto_utils import AwsClientConfig
+from aws_boto_utils.services import S3Client
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -100,6 +102,15 @@ def boto3_client(service_name: str, settings: Settings) -> Any:
     )
 
 
+def aws_config(settings: Settings) -> AwsClientConfig:
+    return AwsClientConfig(
+        endpoint_url=settings.endpoint_url,
+        region_name=settings.region,
+        aws_access_key_id=settings.access_key_id,
+        aws_secret_access_key=settings.secret_access_key,
+    )
+
+
 def parse_message_body(body: str) -> Any:
     try:
         return json.loads(body)
@@ -187,12 +198,12 @@ def build_s3_log_key(settings: Settings, run_id: str) -> str:
     return f"{settings.log_prefix}/{date_prefix}/{run_id}.json"
 
 
-def upload_log_to_s3(s3: Any, settings: Settings, log_path: Path, s3_key: str) -> None:
+def upload_log_to_s3(s3: S3Client, settings: Settings, log_path: Path, s3_key: str) -> None:
     s3.upload_file(
-        Filename=str(log_path),
-        Bucket=settings.bucket_name,
-        Key=s3_key,
-        ExtraArgs={"ContentType": "application/json"},
+        filename=log_path,
+        bucket=settings.bucket_name,
+        key=s3_key,
+        extra_args={"ContentType": "application/json"},
     )
 
 
@@ -235,7 +246,7 @@ def run() -> dict[str, Any]:
 
     sqs = boto3_client("sqs", settings)
     dynamodb = boto3_client("dynamodb", settings)
-    s3 = boto3_client("s3", settings)
+    s3 = S3Client.from_config(aws_config(settings))
 
     try:
         messages = receive_messages(sqs, settings)
