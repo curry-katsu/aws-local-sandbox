@@ -9,6 +9,14 @@ dist/
 __pycache__/
 *.py[cod]
 .ruff_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+coverage.xml
+gui/coverage/
+libs/**/coverage/
+libs/**/htmlcov/
 verification/**/logs/
 
 articles/

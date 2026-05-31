@@ -1,0 +1,7 @@
+interface:
+  display_name: "AWS Local Spec Sync"
+  short_description: "Keep GUI specs aligned with behavior"
+  default_prompt: "Use $aws-local-spec-sync to update the aws-local-sandbox GUI behavior and its specification together."
+
+policy:
+  allow_implicit_invocation: true

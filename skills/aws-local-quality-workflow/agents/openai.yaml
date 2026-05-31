@@ -1,0 +1,7 @@
+interface:
+  display_name: "AWS Local Quality Workflow"
+  short_description: "Stabilize aws-local-sandbox changes"
+  default_prompt: "Use $aws-local-quality-workflow to make this aws-local-sandbox change with the right boundaries and validation."
+
+policy:
+  allow_implicit_invocation: true

@@ -11,6 +11,7 @@
 - `infra/`: Terraform configuration targeting Floci.
 - `gui/`: Vue 3 + Vite + Vuetify 3 management console.
 - `docs/specifications/`: User-facing specifications. Update these when GUI capabilities change.
+- `skills/`: Repo-local Codex skill definitions for recurring agent workflows.
 - `verification/`: Nested verification tools. Each tool should live in its own subdirectory, for example `verification/sqs_to_dynamodb_s3_log/`.
 - `data/floci/`: Local persisted Floci state created at runtime.
 
@@ -41,13 +42,15 @@ export VITE_AWS_SECRET_ACCESS_KEY=test
 ## Agent Workflow
 
 1. Inspect current state with `git status --short` before editing.
-2. Start services with `make up`.
-3. Initialize Terraform with `make infra-init` if `.terraform/` does not exist.
-4. Apply local infrastructure with `make infra-apply`.
-5. Run the GUI with either Docker Compose or `make gui-dev`.
-6. Validate changes with the smallest relevant command:
+2. Use repo-local skills under `skills/` when the task matches their frontmatter descriptions.
+3. Start services with `make up`.
+4. Initialize Terraform with `make infra-init` if `.terraform/` does not exist.
+5. Apply local infrastructure with `make infra-apply`.
+6. Run the GUI with either Docker Compose or `make gui-dev`.
+7. Validate changes with the smallest relevant command:
    - Terraform: `terraform fmt`, `make infra-plan`
-   - GUI: `cd gui && npm run build`
+   - GUI: `cd gui && npm run build`; also run GUI tests with coverage when GUI tests exist
+   - Libraries: run the affected package tests with coverage, for example `cd libs/aws-boto-utils && poetry run pytest`
    - End-to-end smoke: `make smoke`
    - Service workflow verification: `make verify-install`, `make verify-send-message`, then `make verify-run`
    - Verification output checks: `make verify-dynamodb-scan`, `make verify-s3-ls`, `make verify-s3-cat FILE=<key>`
