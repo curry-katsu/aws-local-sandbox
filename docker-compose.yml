@@ -1,6 +1,6 @@
 services:
   floci:
-    image: floci/floci:1.5.16
+    image: floci/floci:1.5.27
     container_name: aws-local-sandbox-floci
     ports:
       - "4566:4566"
@@ -11,6 +11,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
       FLOCI_STORAGE_MODE: ${FLOCI_STORAGE_MODE:-persistent}
       FLOCI_STORAGE_PERSISTENT_PATH: /app/data
+      FLOCI_SECURITY_EXTRA_CORS_ALLOWED_ORIGINS: ${FLOCI_CORS_ALLOWED_ORIGINS:-https://curry-katsu.github.io}
       FLOCI_SERVICES_DOCKER_NETWORK: ${FLOCI_SERVICES_DOCKER_NETWORK:-aws-local-sandbox_default}
       FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE: ${FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE:-postgres:17.7-alpine}
     volumes:
@@ -51,6 +52,7 @@ services:
     environment:
       PORT: 5180
       FLOCI_CONTAINER_NAME: aws-local-sandbox-floci
+      CORS_ALLOWED_ORIGINS: ${DEBUG_API_CORS_ALLOWED_ORIGINS:-https://curry-katsu.github.io}
     volumes:
       - ./debug-api:/app:ro
       - /var/run/docker.sock:/var/run/docker.sock

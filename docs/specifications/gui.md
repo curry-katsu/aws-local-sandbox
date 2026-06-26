@@ -11,6 +11,7 @@ The GUI is a local management console for resources running on Floci through the
 - Default URL: `http://localhost:5173`
 - Browser AWS endpoint: `VITE_AWS_BROWSER_ENDPOINT_URL` or `/floci` through the Vite proxy
 - Local debug endpoint: `/debug` through the Vite proxy to `debug-api`
+- Hosted URL: `https://curry-katsu.github.io/aws-local-sandbox/`
 - Region: `VITE_AWS_REGION` or `us-east-1`
 - Credentials: dummy local keys only
 
@@ -25,6 +26,22 @@ Validate:
 ```sh
 cd gui && npm run build
 ```
+
+The GitHub Pages build uses hash-based routing and calls the local browser endpoints
+directly:
+
+- Floci: `http://localhost:4566`
+- Debug API: `http://localhost:5180/debug`
+
+The local Floci and debug-api containers must be running. The browser may require
+permission before a public HTTPS page can access services on the local machine.
+Floci and debug-api only allow browser origins configured through
+`FLOCI_CORS_ALLOWED_ORIGINS` and `DEBUG_API_CORS_ALLOWED_ORIGINS`.
+
+The app bar provides a connection settings dialog. Users can override the Floci
+endpoint, debug API base URL, and AWS region for the current browser. Settings are
+stored in browser local storage and take effect after the GUI reloads. Resetting
+restores the defaults supplied by the current deployment.
 
 ## Navigation
 

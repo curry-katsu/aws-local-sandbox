@@ -1,4 +1,4 @@
-const debugBaseUrl = import.meta.env.VITE_DEBUG_API_BROWSER_URL || '/debug'
+import { debugBaseUrl } from './config'
 
 export async function getLambdaLogs(functionName, options = {}) {
   const tail = options.tail || 200

@@ -5,11 +5,23 @@ const dockerSocketPath = process.env.DOCKER_SOCKET_PATH || '/var/run/docker.sock
 const flociContainerName = process.env.FLOCI_CONTAINER_NAME || 'aws-local-sandbox-floci'
 const defaultTail = Number(process.env.DEFAULT_LOG_TAIL || 200)
 const maxTail = Number(process.env.MAX_LOG_TAIL || 1000)
+const allowedOrigins = new Set(
+  (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+)
 
 const server = http.createServer(async (request, response) => {
-  setCorsHeaders(response)
+  const corsAllowed = setCorsHeaders(request, response)
 
   if (request.method === 'OPTIONS') {
+    if (
+      corsAllowed &&
+      request.headers['access-control-request-private-network'] === 'true'
+    ) {
+      response.setHeader('Access-Control-Allow-Private-Network', 'true')
+    }
     response.writeHead(204)
     response.end()
     return
@@ -169,8 +181,15 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload))
 }
 
-function setCorsHeaders(response) {
-  response.setHeader('Access-Control-Allow-Origin', '*')
+function setCorsHeaders(request, response) {
+  const origin = request.headers.origin
+  const isAllowed = Boolean(origin && (allowedOrigins.has('*') || allowedOrigins.has(origin)))
+
+  response.setHeader('Vary', 'Origin')
+  if (!isAllowed) return false
+
+  response.setHeader('Access-Control-Allow-Origin', allowedOrigins.has('*') ? '*' : origin)
   response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  return true
 }

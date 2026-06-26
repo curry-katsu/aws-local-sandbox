@@ -47,6 +47,39 @@ make gui-install
 make gui-dev
 ```
 
+## Hosted GUI
+
+The GUI is deployed to GitHub Pages:
+
+```text
+https://curry-katsu.github.io/aws-local-sandbox/
+```
+
+Set the repository's Pages source to **GitHub Actions** once before the first
+deployment. Pushes to `main` that change `gui/` then run the deployment workflow.
+
+The hosted GUI runs entirely in the browser and connects to Floci and the debug API
+on the same local machine. Start the local backend containers, then open the hosted
+URL:
+
+```sh
+docker compose up -d floci debug-api
+```
+
+The browser may ask for permission to access services on the local network. The
+default CORS allow-list permits only `https://curry-katsu.github.io`. Override it
+for a custom Pages domain when starting Compose:
+
+```sh
+FLOCI_CORS_ALLOWED_ORIGINS=https://gui.example.com \
+DEBUG_API_CORS_ALLOWED_ORIGINS=https://gui.example.com \
+docker compose up -d floci debug-api
+```
+
+Use the connection settings button in the GUI app bar when Floci or debug-api uses
+a different local port. The selected endpoints and region are stored in that
+browser and applied after the GUI reloads.
+
 ## Environment
 
 ```sh

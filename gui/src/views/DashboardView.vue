@@ -25,7 +25,5 @@
 
 <script setup>
 import ResourceList from '../components/ResourceList.vue'
-
-const endpointUrl = import.meta.env.VITE_AWS_BROWSER_ENDPOINT_URL || `${window.location.origin}/floci`
-const region = import.meta.env.VITE_AWS_REGION || 'us-east-1'
+import { endpoint as endpointUrl, region } from '../aws/config'
 </script>
