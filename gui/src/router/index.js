@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 
 export const navigationItems = [
   { path: '/', title: 'Dashboard', icon: 'mdi-view-dashboard-outline' },
@@ -46,6 +46,9 @@ const routes = [
 ]
 
 export const router = createRouter({
-  history: createWebHistory(),
+  history:
+    import.meta.env.VITE_ROUTER_MODE === 'hash'
+      ? createWebHashHistory(import.meta.env.BASE_URL)
+      : createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
